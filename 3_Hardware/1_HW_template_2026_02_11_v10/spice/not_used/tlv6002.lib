@@ -1,0 +1,7 @@
+* A dual opamp ngspice model
+* file name: tlv6002.lib
+.subckt TLV6002 1out 1in- 1in+ vcc- 2in+ 2in- 2out vcc+
+.include tlv6001.lib
+XU1A 1in+ 1in- vcc+ vcc- 1out TLV6001
+XU1B 2in+ 2in- vcc+ vcc- 2out TLV6001
+.ends

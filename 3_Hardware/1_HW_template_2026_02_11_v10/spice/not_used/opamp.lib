@@ -1,0 +1,18 @@
+* Almost ideal rail-to-rail opamp
+* Aol = open-loop gain
+* GBW = Gain-Bandwidth product
+* (c) hhrt@zhaw.ch, 15.12.2022
+* connection order: in- in+ out vcc+ vcc-
+.subckt opamp 1 2 3 4 5
+* voltage dependant current source with gain = Aol
+G1 0 3 2 1 {Aol}
+* RC lowpass at the output for gain-bandwith frequency response
+R1 3 0 1
+C1 3 0 {Aol/GBW/6.28}
+* limit output swing to rails
+* Dp 3 11 dx
+* Vp 4 11 dc 0.6
+* Dn 12 3 dx
+* Vn 12 5 dc 0.6
+* .model dx D(Is=1u)
+.ends opamp

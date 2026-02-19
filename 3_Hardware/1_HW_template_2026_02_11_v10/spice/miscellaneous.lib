@@ -1,0 +1,39 @@
+* Miscellaneous spice models for special components
+* used in the HWtemplate of ET.PM3 and ET.PM4
+* (c) hhrt@zhaw.ch, 20.12.2022
+
+
+*******************************************
+* Simplest LED models
+* (c) hhrt@zhaw.ch, 20.12.2022
+.model LEDred D (N=2.5)
+.model LEDgreen D (N=3)
+.model LEDblue D (N=4)
+
+
+*******************************************
+* Signal Schottky diode SD103AWS: 40V, 0.35A, 10ns
+* https://www.diodes.com/spice/download/271/SD103AWS.spice.txt
+.MODEL DI_SD103AWS D ( IS=8.65u RS=0.120 BV=40.0 IBV=5.00u CJO=53.0p  M=0.333 N=1.70 TT=14.4n )
+
+
+*******************************************************
+* Power Schottky diode SS13L: 30V, 1A
+* https://www.taiwansemi.com/assets/uploads/spice/SS13L.txt
+.MODEL SS13L D ( IS=1.4837E-6 N=1.0443 RS=54.747E-3 IKF=.44154 CJO=147.94E-12 M=.49997 VJ=1.0845 ISR=205.41E-9 NR=4.9950 BV=30 IBV=10E-6 TT=7.3989E-9 )
+
+
+*******************************************************
+* N-Channel Small Signal MOSFET BSS316N: 30V, 1.4A, logic level
+* (c) hhrt@zhaw.ch, 09.01.2023 with values from datasheet
+.model BSS316N VDMOS(Rd=191m Vto=1.6 Cgdmax=80p Cgdmin=20p Cgs=70p mfg=infineon Vds=30 Ron=191m Qg=0.6n)
+
+
+*******************************************
+* Load Switch SiP32508: 1.1 V to 5.5 V, Slew Rate Controlled, TSOT23-6
+* (c) hhrt@zhaw.ch, 20.12.2022
+.subckt SiP32508 out1 out2 en gnd in1 in2
+S1 in1 out1 en gnd mySiP32508
+.model mySiP32508 SW(Ron=44m Roff=1Meg Vt=1 Vh=-0.5)
+.ends SiP32508
+

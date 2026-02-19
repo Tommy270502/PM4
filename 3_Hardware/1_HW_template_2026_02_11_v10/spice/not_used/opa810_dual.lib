@@ -1,0 +1,7 @@
+* A dual opamp ngspice model
+* file name: opa810_dual.lib
+.subckt OPA2810 1out 1in- 1in+ vcc- 2in+ 2in- 2out vcc+
+.include opa810_a.lib
+XU1A 1in+ 1in- 1out vcc+ vcc- OPA810
+XU1B 2in+ 2in- 2out vcc+ vcc- OPA810
+.ends

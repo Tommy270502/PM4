@@ -1,0 +1,10 @@
+* A dual opamp spice model
+* As the MCP6002 model does not work properly with ngspice or LTspice
+* the similar model of the AD8541 is used for spice simulation
+* (c) hhrt@zhaw.ch 09.01.2023
+* file name: MCP6002.lib
+.subckt MCP6002 1out 1in- 1in+ vcc- 2in+ 2in- 2out vcc+
+.include ad8541.cir
+XU1A 1in+ 1in- vcc+ vcc- 1out AD8541
+XU1B 2in+ 2in- vcc+ vcc- 2out AD8541
+.ends
