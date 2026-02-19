@@ -1,0 +1,48 @@
+% ============================================================
+% PM4, CW-Doppler-Radar, Exercise 3
+% ============================================================
+clear; close all; clc;
+
+% Input
+% ============================================================
+[y,fs] = audioread('cw_doppler_radar_8kSps_160.wav');
+y = y'; % y(1,:) corresponds to I(t), y(2,:) to Q(t)
+
+% Parameter
+% ============================================================
+N = length(y(1,:));     % number of samples
+NFFT = 256;             % block length of FFT
+
+
+% plot sensor signals
+% ============================================================
+t = [0:N-1]./fs;                    % please complete
+subplot(3,1,1);
+plot(t*1e3,y(1,:),t*1e3,y(2,:),'--','LineWidth',1.0); grid;  % please complete
+axis([0 40 -1.1 1.1])
+xlabel('t / ms'); legend('I(t)','Q(t)');
+title('Sensor Signals');
+
+% Doppler frequency detection, single sensor signal
+% ==========================================================
+z = y(1,1:NFFT);                % use in_phase signal I(t)
+Z = abs(fft(z))./NFFT;               % please complete
+Z = fftshift(Z);
+f = [-NFFT/2:NFFT/2-1].*fs/NFFT;         % please complete
+subplot(3,1,2)
+stem(f,Z,'LineWidth',1.0); grid;
+axis([-1000 1000 0 0.5])
+xlabel('f / Hz'); ylabel('abs(Z(f))');
+title('Doppler-Spectrum if z(t) = I(t)');
+
+% Doppler frequency detection, two sensor signals
+% ==========================================================
+z = y(1,1:NFFT) + j*y(2,1:NFFT);              % please use I- & Q-signals
+Z = abs(fft(z))./NFFT;                  % please complete
+Z = fftshift(Z);
+f = [-NFFT/2:NFFT/2-1].*fs/NFFT;         % please complete
+subplot(3,1,3)
+stem(f,Z,'LineWidth',1.0); grid;
+axis([-1000 1000 0 0.5])
+xlabel('f / Hz'); ylabel('abs(Z(f))');
+title('Doppler-Spectrum if z(t) = I(t)+j*Q(t)');

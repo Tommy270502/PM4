@@ -1,0 +1,22 @@
+
+LT Spice "universalopamp" with following settings:
+
+Avol=3.16e5 GBW=2Meg Vos=3e-3
+En=20e-9 Enk=346e-9 In=3e-15 Ib=1e-12 Rin=500Meg
+
+Explanations / Calculations:
+
+Avol (Open-loop DC Gain	Typ 110 dB, min 90 dB  -> 10^(110/20)≈ 3.16e5
+
+GBW (Gain-Bandwidth Product) 	Typ: 2 MHz
+
+Vos (Input Offset Voltage)	Max ±3 mV 
+
+En (Voltage Noise Density) 	20 nV/√Hz (at 1 kHz)
+Fc (Flicker Noise Corner Frequency)	300 Hz  -> Enk=En∙√Fc =	346nV/√Hz
+
+In (Current Noise Density)	3 fA/√Hz  (at 1 kHz)
+
+Input Bias Current	typ ±1 pA
+
+Rin (Input Resistance) CMOS → very high -> in SPICE typ 500 MΩ is OK                                        |
