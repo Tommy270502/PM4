@@ -701,16 +701,24 @@
       "Root"
     ],
     [
-      "de01ffac-1f9d-4a03-9ae5-48822ed64956",
+      "696bfab4-12ce-46e1-9dcc-3a545c833b01",
       "channel1"
     ],
     [
-      "dcec0d15-a185-46c1-b70e-bab38dd94215",
+      "6cb065fd-dc4f-4e0e-9e78-df1b7c624602",
       "channel2"
     ],
     [
       "666a1d31-5908-41dd-bbf5-17c62b80b23c",
       "Miscellaneous"
+    ],
+    [
+      "53678366-9d6f-42c1-9420-188f8f258077",
+      "Analog"
+    ],
+    [
+      "b4c75508-242a-42f6-bbff-7db575bcc9ab",
+      "DAC"
     ]
   ],
   "text_variables": {}
