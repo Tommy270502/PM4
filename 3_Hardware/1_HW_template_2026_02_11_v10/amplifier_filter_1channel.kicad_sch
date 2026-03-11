@@ -941,7 +941,7 @@
 		)
 	)
 	(rectangle
-		(start 76.2 63.5)
+		(start 76.2 50.8)
 		(end 234.95 132.08)
 		(stroke
 			(width 1)
@@ -952,9 +952,9 @@
 		)
 		(uuid c72a065c-de34-4ed1-a68e-f81f0b83b4dd)
 	)
-	(text "total gain ~1000 or 80db"
+	(text "total gain ~10000 or 80db"
 		(exclude_from_sim no)
-		(at 137.668 124.206 0)
+		(at 146.05 124.968 0)
 		(effects
 			(font
 				(size 5 5)
@@ -1610,7 +1610,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "02c5f68f-3194-4243-b864-a02f6ec580fa")
-		(property "Reference" "C15"
+		(property "Reference" "C5"
 			(at 172.466 102.87 0)
 			(effects
 				(font
@@ -1628,7 +1628,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder"
 			(at 174.2948 107.95 0)
 			(effects
 				(font
@@ -1664,11 +1664,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C15")
+					(reference "C5")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "C17")
+					(reference "C12")
 					(unit 1)
 				)
 			)
@@ -1684,7 +1684,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "03ce9080-6b88-480c-ba66-cb9e16c75dc2")
-		(property "Reference" "U3"
+		(property "Reference" "U1"
 			(at 165.1 68.58 0)
 			(effects
 				(font
@@ -1700,7 +1700,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
 			(at 165.1 78.74 0)
 			(effects
 				(font
@@ -1754,11 +1754,11 @@
 		(instances
 			(project ""
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "U3")
+					(reference "U1")
 					(unit 2)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "U4")
+					(reference "U2")
 					(unit 2)
 				)
 			)
@@ -1774,7 +1774,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1486f736-3196-4aac-b781-cba7201a212c")
-		(property "Reference" "R23"
+		(property "Reference" "R6"
 			(at 207.01 85.0899 0)
 			(effects
 				(font
@@ -1792,7 +1792,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 202.692 86.36 90)
 			(effects
 				(font
@@ -1828,11 +1828,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R23")
+					(reference "R6")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "R24")
+					(reference "R13")
 					(unit 1)
 				)
 			)
@@ -1848,7 +1848,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "356278f7-a66a-4e7e-bb42-e97552f0fc2f")
-		(property "Reference" "C5"
+		(property "Reference" "C1"
 			(at 20.066 177.8 0)
 			(effects
 				(font
@@ -1866,7 +1866,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 21.8948 182.88 0)
 			(effects
 				(font
@@ -1902,11 +1902,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C5")
+					(reference "C1")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "C6")
+					(reference "C8")
 					(unit 1)
 				)
 			)
@@ -1922,7 +1922,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3cedeeac-443d-4017-9a0f-6089fa4fe239")
-		(property "Reference" "C11"
+		(property "Reference" "C4"
 			(at 143.256 81.28 0)
 			(effects
 				(font
@@ -1940,7 +1940,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 145.0848 86.36 0)
 			(effects
 				(font
@@ -1976,11 +1976,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C11")
+					(reference "C4")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "C12")
+					(reference "C11")
 					(unit 1)
 				)
 			)
@@ -1996,7 +1996,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3dcbd4b2-002f-4c86-98e1-5f1426c941bf")
-		(property "Reference" "C16"
+		(property "Reference" "C6"
 			(at 187.706 83.82 0)
 			(effects
 				(font
@@ -2014,7 +2014,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 189.5348 88.9 0)
 			(effects
 				(font
@@ -2050,11 +2050,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C16")
+					(reference "C6")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "C18")
+					(reference "C13")
 					(unit 1)
 				)
 			)
@@ -2070,7 +2070,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "47711348-bb4c-4025-87ed-cc8f9f1e29af")
-		(property "Reference" "R25"
+		(property "Reference" "R7"
 			(at 207.01 95.2499 0)
 			(effects
 				(font
@@ -2088,7 +2088,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 202.692 96.52 90)
 			(effects
 				(font
@@ -2124,11 +2124,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R25")
+					(reference "R7")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "R26")
+					(reference "R14")
 					(unit 1)
 				)
 			)
@@ -2144,7 +2144,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "4e71c161-9635-4cf9-ba78-606ab6407891")
-		(property "Reference" "C20"
+		(property "Reference" "C7"
 			(at 219.964 97.79 0)
 			(effects
 				(font
@@ -2162,7 +2162,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 218.1352 92.71 0)
 			(effects
 				(font
@@ -2198,11 +2198,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C20")
+					(reference "C7")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "C21")
+					(reference "C14")
 					(unit 1)
 				)
 			)
@@ -2218,7 +2218,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5054d4d3-207d-4c8f-b146-4c7ecd6afca3")
-		(property "Reference" "JP2"
+		(property "Reference" "JP1"
 			(at 210.82 72.39 0)
 			(effects
 				(font
@@ -2234,7 +2234,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm"
 			(at 210.82 78.74 0)
 			(effects
 				(font
@@ -2270,11 +2270,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "JP2")
+					(reference "JP1")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "JP3")
+					(reference "JP2")
 					(unit 1)
 				)
 			)
@@ -2290,7 +2290,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "58c39af0-b52c-497a-8cb8-7d549347b39d")
-		(property "Reference" "C13"
+		(property "Reference" "C3"
 			(at 128.016 100.33 0)
 			(effects
 				(font
@@ -2308,7 +2308,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder"
 			(at 129.8448 105.41 0)
 			(effects
 				(font
@@ -2344,11 +2344,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C13")
+					(reference "C3")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "C14")
+					(reference "C10")
 					(unit 1)
 				)
 			)
@@ -2365,7 +2365,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "697ac534-a3fd-4e94-b1df-3c1e216a2b79")
-		(property "Reference" "#PWR026"
+		(property "Reference" "#PWR011"
 			(at 175.26 115.57 0)
 			(effects
 				(font
@@ -2415,11 +2415,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "#PWR026")
+					(reference "#PWR011")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "#PWR027")
+					(reference "#PWR017")
 					(unit 1)
 				)
 			)
@@ -2435,7 +2435,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6b53763e-f44c-4fe8-9b9d-65b4bce4d54c")
-		(property "Reference" "U3"
+		(property "Reference" "U1"
 			(at 120.65 66.04 0)
 			(effects
 				(font
@@ -2451,7 +2451,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
 			(at 120.65 76.2 0)
 			(effects
 				(font
@@ -2479,37 +2479,37 @@
 			)
 		)
 		(pin "1"
-			(uuid "74ed4fad-9f11-484d-9dd9-d1036194ffcf")
+			(uuid "74ed4fad-9f11-484d-9dd9-d1036194ffd0")
 		)
 		(pin "2"
-			(uuid "1712d9d6-379b-4519-ba2e-ccdf135bdfec")
+			(uuid "1712d9d6-379b-4519-ba2e-ccdf135bdfed")
 		)
 		(pin "3"
-			(uuid "469dbbc9-5db1-4331-9293-951a537ffede")
+			(uuid "469dbbc9-5db1-4331-9293-951a537ffedf")
 		)
 		(pin "7"
-			(uuid "17dbc0f3-142c-4413-a0e4-da6b0f9a03cd")
+			(uuid "17dbc0f3-142c-4413-a0e4-da6b0f9a03ce")
 		)
 		(pin "6"
-			(uuid "833f2724-e0f0-43b5-89d1-283a8c8d52be")
+			(uuid "833f2724-e0f0-43b5-89d1-283a8c8d52bf")
 		)
 		(pin "4"
-			(uuid "75317a21-1f43-4146-9939-f6315f148fd4")
+			(uuid "75317a21-1f43-4146-9939-f6315f148fd5")
 		)
 		(pin "5"
-			(uuid "0235ed3e-4ab2-4784-b10d-6a6c315d4707")
+			(uuid "0235ed3e-4ab2-4784-b10d-6a6c315d4708")
 		)
 		(pin "8"
-			(uuid "79a1be07-ba3d-41ea-a613-eda0987e9c36")
+			(uuid "79a1be07-ba3d-41ea-a613-eda0987e9c37")
 		)
 		(instances
 			(project ""
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "U3")
+					(reference "U1")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "U4")
+					(reference "U2")
 					(unit 1)
 				)
 			)
@@ -2525,7 +2525,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7b9c8938-9614-4e31-b95a-1adf1bd9c144")
-		(property "Reference" "R4"
+		(property "Reference" "R1"
 			(at 104.14 78.7399 0)
 			(effects
 				(font
@@ -2543,7 +2543,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 99.822 80.01 90)
 			(effects
 				(font
@@ -2579,11 +2579,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R4")
+					(reference "R1")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "R5")
+					(reference "R8")
 					(unit 1)
 				)
 			)
@@ -2599,7 +2599,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "7cab2e89-4dec-4168-ad7f-ca854ca5ae71")
-		(property "Reference" "C7"
+		(property "Reference" "C2"
 			(at 95.25 70.866 0)
 			(effects
 				(font
@@ -2617,7 +2617,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 90.17 72.6948 0)
 			(effects
 				(font
@@ -2653,7 +2653,7 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "C7")
+					(reference "C2")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
@@ -2673,7 +2673,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7e860795-7da6-4e83-9d34-7a20418ae7c0")
-		(property "Reference" "R13"
+		(property "Reference" "R5"
 			(at 177.8 93.9799 0)
 			(effects
 				(font
@@ -2691,7 +2691,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 173.482 95.25 90)
 			(effects
 				(font
@@ -2727,11 +2727,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R13")
+					(reference "R5")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "R15")
+					(reference "R12")
 					(unit 1)
 				)
 			)
@@ -2747,7 +2747,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "8faaa770-9b32-46e4-9793-fd7a9656adea")
-		(property "Reference" "U3"
+		(property "Reference" "U1"
 			(at 30.48 177.7999 0)
 			(effects
 				(font
@@ -2765,7 +2765,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
 			(at 31.75 179.07 0)
 			(effects
 				(font
@@ -2793,37 +2793,37 @@
 			)
 		)
 		(pin "1"
-			(uuid "74ed4fad-9f11-484d-9dd9-d1036194ffcf")
+			(uuid "74ed4fad-9f11-484d-9dd9-d1036194ffd1")
 		)
 		(pin "2"
-			(uuid "1712d9d6-379b-4519-ba2e-ccdf135bdfec")
+			(uuid "1712d9d6-379b-4519-ba2e-ccdf135bdfee")
 		)
 		(pin "3"
-			(uuid "469dbbc9-5db1-4331-9293-951a537ffede")
+			(uuid "469dbbc9-5db1-4331-9293-951a537ffee0")
 		)
 		(pin "7"
-			(uuid "17dbc0f3-142c-4413-a0e4-da6b0f9a03cd")
+			(uuid "17dbc0f3-142c-4413-a0e4-da6b0f9a03cf")
 		)
 		(pin "6"
-			(uuid "833f2724-e0f0-43b5-89d1-283a8c8d52be")
+			(uuid "833f2724-e0f0-43b5-89d1-283a8c8d52c0")
 		)
 		(pin "4"
-			(uuid "75317a21-1f43-4146-9939-f6315f148fd4")
+			(uuid "75317a21-1f43-4146-9939-f6315f148fd6")
 		)
 		(pin "5"
-			(uuid "0235ed3e-4ab2-4784-b10d-6a6c315d4707")
+			(uuid "0235ed3e-4ab2-4784-b10d-6a6c315d4709")
 		)
 		(pin "8"
-			(uuid "79a1be07-ba3d-41ea-a613-eda0987e9c36")
+			(uuid "79a1be07-ba3d-41ea-a613-eda0987e9c38")
 		)
 		(instances
 			(project ""
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "U3")
+					(reference "U1")
 					(unit 3)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "U4")
+					(reference "U2")
 					(unit 3)
 				)
 			)
@@ -2840,7 +2840,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b7689949-c273-48bd-b603-992cee9b8cb2")
-		(property "Reference" "#PWR042"
+		(property "Reference" "#PWR013"
 			(at 217.17 109.22 0)
 			(effects
 				(font
@@ -2890,11 +2890,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "#PWR042")
+					(reference "#PWR013")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "#PWR044")
+					(reference "#PWR019")
 					(unit 1)
 				)
 			)
@@ -2910,7 +2910,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d2eaee76-72d9-47cc-8937-717dbd3406a8")
-		(property "Reference" "R12"
+		(property "Reference" "R4"
 			(at 177.8 83.8199 0)
 			(effects
 				(font
@@ -2928,7 +2928,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 173.482 85.09 90)
 			(effects
 				(font
@@ -2964,11 +2964,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R12")
+					(reference "R4")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "R14")
+					(reference "R11")
 					(unit 1)
 				)
 			)
@@ -2984,7 +2984,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d7a57e2f-d0da-4910-aa31-531a817368fe")
-		(property "Reference" "R6"
+		(property "Reference" "R2"
 			(at 133.35 81.2799 0)
 			(effects
 				(font
@@ -3002,7 +3002,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 129.032 82.55 90)
 			(effects
 				(font
@@ -3038,11 +3038,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R6")
+					(reference "R2")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "R7")
+					(reference "R9")
 					(unit 1)
 				)
 			)
@@ -3059,7 +3059,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "dade9763-c51e-45d5-9456-11b0a5c01fe3")
-		(property "Reference" "#PWR021"
+		(property "Reference" "#PWR09"
 			(at 29.21 195.58 0)
 			(effects
 				(font
@@ -3109,11 +3109,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "#PWR021")
+					(reference "#PWR09")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "#PWR022")
+					(reference "#PWR015")
 					(unit 1)
 				)
 			)
@@ -3130,7 +3130,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f4a3ca6d-96ad-4291-ac3f-a6b5efcff6de")
-		(property "Reference" "#PWR023"
+		(property "Reference" "#PWR010"
 			(at 130.81 113.03 0)
 			(effects
 				(font
@@ -3180,11 +3180,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "#PWR023")
+					(reference "#PWR010")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "#PWR024")
+					(reference "#PWR016")
 					(unit 1)
 				)
 			)
@@ -3199,7 +3199,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "fc702a2c-bd2c-4502-8180-7d0ed880aabe")
-		(property "Reference" "#PWR019"
+		(property "Reference" "#PWR08"
 			(at 29.21 172.72 0)
 			(effects
 				(font
@@ -3249,11 +3249,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "#PWR019")
+					(reference "#PWR08")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "#PWR020")
+					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -3269,7 +3269,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "fcfc02a3-6aa9-4a57-aff8-6a469fa2d117")
-		(property "Reference" "R8"
+		(property "Reference" "R3"
 			(at 133.35 91.4399 0)
 			(effects
 				(font
@@ -3287,7 +3287,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 129.032 92.71 90)
 			(effects
 				(font
@@ -3323,7 +3323,7 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "R8")
+					(reference "R3")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
@@ -3344,7 +3344,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "fd5af56f-777b-4440-995a-63cbb6a44057")
-		(property "Reference" "#PWR038"
+		(property "Reference" "#PWR012"
 			(at 204.47 109.22 0)
 			(effects
 				(font
@@ -3394,11 +3394,11 @@
 		(instances
 			(project "HW_template"
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/696bfab4-12ce-46e1-9dcc-3a545c833b01"
-					(reference "#PWR038")
+					(reference "#PWR012")
 					(unit 1)
 				)
 				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b/53678366-9d6f-42c1-9420-188f8f258077/6cb065fd-dc4f-4e0e-9e78-df1b7c624602"
-					(reference "#PWR040")
+					(reference "#PWR018")
 					(unit 1)
 				)
 			)

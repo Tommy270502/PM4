@@ -109,6 +109,7 @@
         "solder_mask_bridge": "error",
         "starved_thermal": "error",
         "text_height": "warning",
+        "text_on_edge_cuts": "error",
         "text_thickness": "warning",
         "through_hole_pad_without_hole": "error",
         "too_many_vias": "error",
@@ -193,7 +194,12 @@
         }
       ],
       "track_widths": [
-        0.0
+        0.0,
+        0.254,
+        0.3048,
+        0.4064,
+        0.508,
+        0.6096
       ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
@@ -225,6 +231,14 @@
         {
           "diameter": 0.0,
           "drill": 0.0
+        },
+        {
+          "diameter": 0.6,
+          "drill": 0.3
+        },
+        {
+          "diameter": 0.8,
+          "drill": 0.4
         }
       ],
       "zones_allow_external_fillets": false,
@@ -719,6 +733,10 @@
     [
       "b4c75508-242a-42f6-bbff-7db575bcc9ab",
       "DAC"
+    ],
+    [
+      "5e115050-8562-4587-bd6e-3ff70d8e2215",
+      "power"
     ]
   ],
   "text_variables": {}
