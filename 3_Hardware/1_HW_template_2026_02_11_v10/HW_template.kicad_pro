@@ -737,6 +737,10 @@
     [
       "5e115050-8562-4587-bd6e-3ff70d8e2215",
       "power"
+    ],
+    [
+      "0fb14f5e-532a-4fc6-a21e-2193a42ea5a4",
+      "ECG"
     ]
   ],
   "text_variables": {}

@@ -4779,6 +4779,48 @@
 		)
 	)
 	(sheet
+		(at 158.75 44.45)
+		(size 20.32 16.51)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "0fb14f5e-532a-4fc6-a21e-2193a42ea5a4")
+		(property "Sheetname" "ECG"
+			(at 158.75 43.7384 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "ECG.kicad_sch"
+			(at 158.75 61.5446 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "HW_template"
+				(path "/1f276d59-ad9b-4e70-a842-f3b7e562eb9b"
+					(page "8")
+				)
+			)
+		)
+	)
+	(sheet
 		(at 171.45 86.36)
 		(size 17.78 10.16)
 		(exclude_from_sim no)
