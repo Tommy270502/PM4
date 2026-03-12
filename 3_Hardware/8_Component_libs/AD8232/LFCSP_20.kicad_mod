@@ -282,7 +282,7 @@
 		(uuid "957104c0-766a-417f-a145-435e5340883e")
 	)
 	(embedded_fonts no)
-	(model "C:/Users/Thomas/Documents/git/PM4/3_Hardware/8_Component_libs/AD8232/AD8232.step"
+	(model "/home/thomas/Documents/git/PM4/3_Hardware/8_Component_libs/AD8232/AD8232.step"
 		(offset
 			(xyz 0 0 0)
 		)

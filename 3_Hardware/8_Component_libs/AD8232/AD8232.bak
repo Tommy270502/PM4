@@ -18,13 +18,14 @@
 				(justify left top)
 			)
 		)
-		(property "Value" "AD8232"
-			(at -15.24 -30.48 0)
+		(property "Value" "AD8232ACPZ-R7"
+			(at 0 0 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left bottom)
+				(justify bottom)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "AD8232:LFCSP_20"
@@ -95,16 +96,6 @@
 				(hide yes)
 			)
 		)
-		(property "VALUE" "AD8232ACPZ-R7"
-			(at 0 0 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-				(hide yes)
-			)
-		)
 		(property "MP" "AD8232"
 			(at 0 0 0)
 			(effects
@@ -166,17 +157,6 @@
 			)
 		)
 		(symbol "AD8232_0_0"
-			(rectangle
-				(start -15.24 -27.94)
-				(end 15.24 43.18)
-				(stroke
-					(width 0.254)
-					(type default)
-				)
-				(fill
-					(type background)
-				)
-			)
 			(pin bidirectional line
 				(at -20.32 40.64 0)
 				(length 5.08)
@@ -553,6 +533,19 @@
 							(size 1.016 1.016)
 						)
 					)
+				)
+			)
+		)
+		(symbol "AD8232_1_0"
+			(rectangle
+				(start -15.24 43.18)
+				(end 15.24 -27.94)
+				(stroke
+					(width 0.254)
+					(type solid)
+				)
+				(fill
+					(type background)
 				)
 			)
 		)
