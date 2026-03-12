@@ -2467,6 +2467,16 @@
 	)
 	(wire
 		(pts
+			(xy 140.97 105.41) (xy 144.78 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9e37942e-feae-4ffb-af0b-e6b4821e2759")
+	)
+	(wire
+		(pts
 			(xy 63.5 76.2) (xy 55.88 76.2)
 		)
 		(stroke
@@ -3215,6 +3225,28 @@
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "TBD"
+		(shape input)
+		(at 140.97 105.41 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "d6fc5437-81ce-475f-976e-85cc821d0b1e")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 134.4772 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
 				(hide yes)
 			)
 		)
@@ -4489,8 +4521,8 @@
 		)
 	)
 	(sheet
-		(at 158.75 44.45)
-		(size 20.32 16.51)
+		(at 144.78 101.6)
+		(size 12.7 7.62)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -4505,7 +4537,7 @@
 		)
 		(uuid "0fb14f5e-532a-4fc6-a21e-2193a42ea5a4")
 		(property "Sheetname" "ECG"
-			(at 158.75 43.7384 0)
+			(at 144.78 100.8884 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4514,12 +4546,22 @@
 			)
 		)
 		(property "Sheetfile" "ECG.kicad_sch"
-			(at 158.75 61.5446 0)
+			(at 144.78 109.8046 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left top)
+			)
+		)
+		(pin "sig_out" input
+			(at 144.78 105.41 180)
+			(uuid "7eca8776-2d55-472b-bc56-f10d1a122e88")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
 			)
 		)
 		(instances
