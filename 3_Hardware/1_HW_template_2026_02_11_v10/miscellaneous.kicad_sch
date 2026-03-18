@@ -787,7 +787,7 @@
 	)
 	(text "The OpenLog extension\n"
 		(exclude_from_sim no)
-		(at 125.222 92.456 0)
+		(at 127.762 92.456 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -821,14 +821,14 @@
 		(uuid "d50857fe-9949-4ba3-aee8-7a50cb26586e")
 	)
 	(junction
-		(at 132.08 115.57)
+		(at 134.62 115.57)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "0e71668a-1860-404b-b272-cc2357c8ce4a")
 	)
 	(wire
 		(pts
-			(xy 132.08 111.76) (xy 132.08 115.57)
+			(xy 134.62 111.76) (xy 134.62 115.57)
 		)
 		(stroke
 			(width 0)
@@ -846,26 +846,6 @@
 		)
 		(uuid "589f85fc-c1f5-48b7-9835-d68d67aa82ba")
 	)
-	(wire
-		(pts
-			(xy 132.08 96.52) (xy 134.62 96.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5b42c61d-ea41-45d4-8701-15ce25303387")
-	)
-	(wire
-		(pts
-			(xy 132.08 104.14) (xy 134.62 104.14)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5cdcc090-c26a-4bde-81c3-5a8a572191b8")
-	)
 	(polyline
 		(pts
 			(xy 185.42 90.17) (xy 185.42 100.33)
@@ -878,7 +858,7 @@
 	)
 	(wire
 		(pts
-			(xy 132.08 107.95) (xy 134.62 107.95)
+			(xy 134.62 107.95) (xy 137.16 107.95)
 		)
 		(stroke
 			(width 0)
@@ -908,7 +888,7 @@
 	)
 	(wire
 		(pts
-			(xy 132.08 115.57) (xy 132.08 116.84)
+			(xy 134.62 115.57) (xy 134.62 116.84)
 		)
 		(stroke
 			(width 0)
@@ -918,7 +898,7 @@
 	)
 	(wire
 		(pts
-			(xy 134.62 111.76) (xy 132.08 111.76)
+			(xy 137.16 111.76) (xy 134.62 111.76)
 		)
 		(stroke
 			(width 0)
@@ -928,7 +908,7 @@
 	)
 	(wire
 		(pts
-			(xy 132.08 100.33) (xy 134.62 100.33)
+			(xy 134.62 100.33) (xy 137.16 100.33)
 		)
 		(stroke
 			(width 0)
@@ -938,7 +918,7 @@
 	)
 	(wire
 		(pts
-			(xy 132.08 115.57) (xy 134.62 115.57)
+			(xy 134.62 115.57) (xy 137.16 115.57)
 		)
 		(stroke
 			(width 0)
@@ -986,9 +966,9 @@
 		)
 		(uuid "e82a1c54-4c66-454e-baaa-5b4a5664a5d7")
 	)
-	(global_label "PA9"
+	(global_label "PG14_"
 		(shape input)
-		(at 132.08 100.33 180)
+		(at 134.62 100.33 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -998,7 +978,7 @@
 		)
 		(uuid "1cac86da-9674-49f5-8948-9042cf07a860")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 126.0988 100.2506 0)
+			(at 125.7082 100.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1008,7 +988,7 @@
 			)
 		)
 	)
-	(global_label "D1"
+	(global_label "PE3"
 		(shape input)
 		(at 190.5 102.87 180)
 		(fields_autoplaced yes)
@@ -1020,7 +1000,7 @@
 		)
 		(uuid "1fa04d91-c507-4e4d-b5fa-d88a4e720122")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 185.0353 102.87 0)
+			(at 183.8863 102.87 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1030,29 +1010,7 @@
 			)
 		)
 	)
-	(global_label "PE6"
-		(shape input)
-		(at 132.08 96.52 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "4b763cb9-a60f-44f8-9413-5433b2441840")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 126.0383 96.4406 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "D0"
+	(global_label "PE5"
 		(shape input)
 		(at 179.07 102.87 180)
 		(fields_autoplaced yes)
@@ -1064,29 +1022,7 @@
 		)
 		(uuid "bbc02de6-aec3-43d9-b714-845a15aa20e2")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 173.6053 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "PA10"
-		(shape output)
-		(at 132.08 104.14 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "f418784b-c292-4812-ac61-a39826308750")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 124.8893 104.0606 0)
+			(at 172.4563 102.87 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1098,7 +1034,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 132.08 116.84 0)
+		(at 134.62 116.84 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1106,7 +1042,7 @@
 		(dnp no)
 		(uuid "1b5296f0-24fc-4bfe-b8d4-9af74cac25db")
 		(property "Reference" "#PWR027"
-			(at 132.08 123.19 0)
+			(at 134.62 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1115,7 +1051,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 132.08 120.65 0)
+			(at 134.62 120.65 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1123,7 +1059,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 132.08 116.84 0)
+			(at 134.62 116.84 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1132,7 +1068,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 132.08 116.84 0)
+			(at 134.62 116.84 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1141,7 +1077,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 132.08 116.84 0)
+			(at 134.62 116.84 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1299,16 +1235,15 @@
 	)
 	(symbol
 		(lib_id "HW_template:OpenLog")
-		(at 143.51 105.41 0)
+		(at 146.05 105.41 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "5a466b8a-46e7-43aa-91d7-5a98daafdf38")
 		(property "Reference" "Y2"
-			(at 151.13 102.8699 0)
+			(at 153.67 102.8699 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1317,7 +1252,7 @@
 			)
 		)
 		(property "Value" "${SIM.PARAMS}"
-			(at 151.13 105.4099 0)
+			(at 153.67 105.4099 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1326,7 +1261,7 @@
 			)
 		)
 		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical"
-			(at 147.32 120.65 0)
+			(at 149.86 120.65 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1335,7 +1270,7 @@
 			)
 		)
 		(property "Datasheet" "https://learn.sparkfun.com/tutorials/openlog-hookup-guide"
-			(at 144.78 123.19 0)
+			(at 147.32 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1344,7 +1279,7 @@
 			)
 		)
 		(property "Description" "extension for logging data onto an SD card"
-			(at 143.51 105.41 0)
+			(at 146.05 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1353,7 +1288,7 @@
 			)
 		)
 		(property "Sim.Device" "SPICE"
-			(at 143.51 105.41 0)
+			(at 146.05 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1362,16 +1297,17 @@
 			)
 		)
 		(property "Sim.Params" "OpenLog"
-			(at 151.13 107.9499 0)
+			(at 153.67 107.9499 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(property "Sim.Pins" "1=1 2=2 3=3 4=4 5=5 6=6"
-			(at 143.51 105.41 0)
+			(at 146.05 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1478,7 +1414,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 132.08 107.95 90)
+		(at 134.62 107.95 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1486,7 +1422,7 @@
 		(dnp no)
 		(uuid "bbc2d973-2217-44e7-86e1-84c112076c62")
 		(property "Reference" "#PWR026"
-			(at 135.89 107.95 0)
+			(at 138.43 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1495,7 +1431,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 128.27 107.95 0)
+			(at 130.81 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1503,7 +1439,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 132.08 107.95 0)
+			(at 134.62 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1512,7 +1448,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 132.08 107.95 0)
+			(at 134.62 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1521,7 +1457,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 132.08 107.95 0)
+			(at 134.62 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)

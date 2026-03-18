@@ -2819,7 +2819,7 @@
 		)
 	)
 	(hierarchical_label "sig_out"
-		(shape input)
+		(shape output)
 		(at 176.53 146.05 0)
 		(effects
 			(font
@@ -3140,7 +3140,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.analog.com/media/en/technical-documentation/data-sheets/ad8232.pdf"
 			(at 154.94 102.87 0)
 			(effects
 				(font
