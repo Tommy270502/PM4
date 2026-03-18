@@ -8990,7 +8990,7 @@
 			(uuid "8bb2897b-2b91-4170-bcc4-1a4dd765dcc3")
 		)
 		(embedded_fonts no)
-		(model "/home/thomas/Documents/git/PM4/3_Hardware/8_Component_libs/3_5mm_audioJack/SJ-3523-SMT-TR--3DModel-STEP-1.STEP"
+		(model "${KIPRJMOD}/Component_libs/3_5mm_audioJack/SJ-3523-SMT-TR--3DModel-STEP-1.STEP"
 			(offset
 				(xyz 0 6 3)
 			)
@@ -11867,7 +11867,18 @@
 			)
 			(fill yes)
 			(layer "F.Paste")
-			(uuid "64d84592-aaa3-4c80-8973-fe6dc1cdacf0")
+			(uuid "458c2c06-6f3a-444b-af11-2d8b571ba508")
+		)
+		(fp_rect
+			(start -2.5 -2.5)
+			(end 2.5 2.5)
+			(stroke
+				(width 0.05)
+				(type default)
+			)
+			(fill no)
+			(layer "F.CrtYd")
+			(uuid "fe56dfec-ca0b-478c-9545-41f2d3f47943")
 		)
 		(fp_line
 			(start -2.25 2.25)
@@ -11877,7 +11888,7 @@
 				(type solid)
 			)
 			(layer "F.Fab")
-			(uuid "33ef0833-6fe9-4299-baaf-2f2986154fb8")
+			(uuid "2c1eaedc-75ee-4406-a030-7ab92eb4790e")
 		)
 		(fp_line
 			(start 2.25 2.25)
@@ -11887,7 +11898,7 @@
 				(type solid)
 			)
 			(layer "F.Fab")
-			(uuid "3669febd-3b26-4d9b-be67-0731eb091927")
+			(uuid "563ce739-79e8-4884-a7c4-44f29c62bc2e")
 		)
 		(fp_line
 			(start -2.25 -2.25)
@@ -11897,7 +11908,7 @@
 				(type solid)
 			)
 			(layer "F.Fab")
-			(uuid "e5821b57-c99e-413c-ba93-5759a7086690")
+			(uuid "8d1170eb-e9d9-4de0-b1a2-bf020b2bb5a9")
 		)
 		(fp_line
 			(start 2.25 -2.25)
@@ -11907,7 +11918,7 @@
 				(type solid)
 			)
 			(layer "F.Fab")
-			(uuid "5d57075d-080e-4a72-ba0b-5f211cc82135")
+			(uuid "4eb0fc9c-f006-4ab1-a740-84f399334c61")
 		)
 		(fp_circle
 			(center -1.729 -1.7)
@@ -11918,7 +11929,7 @@
 			)
 			(fill yes)
 			(layer "F.Fab")
-			(uuid "757e1bc3-81db-441c-88a1-3ea1b38be369")
+			(uuid "2adb3d6d-d1ce-4aa6-99d9-ea1aa69d783e")
 		)
 		(pad "1" smd rect
 			(at -1.85 -1 270)
@@ -20518,6 +20529,14 @@
 		(uuid "160852e8-875a-4349-8648-ac494739c884")
 	)
 	(segment
+		(start 78 56.5)
+		(end 77.75 56.25)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 2)
+		(uuid "1bcfffe5-ce0d-4a00-9f61-e8724d8e4757")
+	)
+	(segment
 		(start 69.475 126.025)
 		(end 69 126.5)
 		(width 0.6096)
@@ -20782,6 +20801,14 @@
 		(uuid "9d642acf-ca23-4fb4-aaeb-ba2aedb35f9d")
 	)
 	(segment
+		(start 77.75 56.25)
+		(end 77.75 54.35)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 2)
+		(uuid "a07764c2-3c75-4e0d-b251-b62671c9cdb4")
+	)
+	(segment
 		(start 101.7675 129.7325)
 		(end 101.5 130)
 		(width 0.6096)
@@ -20902,14 +20929,6 @@
 		(uuid "d7a7c4c1-a28e-4f1c-be3a-9d0a8405ed2d")
 	)
 	(segment
-		(start 77.75 56.25)
-		(end 78 56.5)
-		(width 0.25)
-		(layer "F.Cu")
-		(net 2)
-		(uuid "dd64f9e6-2275-4236-995a-48f2bffce3c0")
-	)
-	(segment
 		(start 89.547552 102.952448)
 		(end 89.5 103)
 		(width 0.6096)
@@ -20940,14 +20959,6 @@
 		(layer "F.Cu")
 		(net 2)
 		(uuid "f1533847-ec75-468a-ae29-29d0ea3c59bf")
-	)
-	(segment
-		(start 77.75 54.35)
-		(end 77.75 56.25)
-		(width 0.25)
-		(layer "F.Cu")
-		(net 2)
-		(uuid "f206a2fe-5df7-478f-ab68-ac47f0344fb3")
 	)
 	(segment
 		(start 101.7675 128.618246)

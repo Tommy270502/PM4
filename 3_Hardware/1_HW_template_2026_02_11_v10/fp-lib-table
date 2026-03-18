@@ -1,3 +1,5 @@
 (fp_lib_table
+  (version 7)
   (lib (name "HW_template")(type "KiCad")(uri "${KIPRJMOD}/HW_template.pretty")(options "")(descr ""))
+  (lib (name "AD8232")(type "KiCad")(uri "${KIPRJMOD}/Component_libs/AD8232")(options "")(descr ""))
 )
