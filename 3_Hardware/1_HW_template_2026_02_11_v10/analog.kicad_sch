@@ -1920,7 +1920,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Channel1"
+		(property "Value" "~"
 			(at 152.4 80.5179 0)
 			(effects
 				(font

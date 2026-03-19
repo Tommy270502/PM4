@@ -3315,7 +3315,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Channel1"
+		(property "Value" "~"
 			(at 177.8 69.0879 0)
 			(effects
 				(font
@@ -3409,7 +3409,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "${SIM.PARAMS}"
+		(property "Value" "Conn_01x32_Female"
 			(at 62.23 86.3601 0)
 			(effects
 				(font
@@ -3795,7 +3795,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "${SIM.PARAMS}"
+		(property "Value" "~"
 			(at 203.2 80.7721 0)
 			(effects
 				(font
@@ -4084,7 +4084,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "${SIM.PARAMS}"
+		(property "Value" "Conn_01x32_Female"
 			(at 24.13 86.3601 0)
 			(effects
 				(font
@@ -4337,7 +4337,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Channel1"
+		(property "Value" "~"
 			(at 208.28 64.0079 0)
 			(effects
 				(font
