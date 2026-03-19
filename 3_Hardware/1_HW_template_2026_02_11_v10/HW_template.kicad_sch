@@ -4552,7 +4552,7 @@
 			(color 0 0 0 0.0000)
 		)
 		(uuid "5e115050-8562-4587-bd6e-3ff70d8e2215")
-		(property "Sheetname" "power"
+		(property "Sheetname" "Power"
 			(at 187.96 99.6184 0)
 			(effects
 				(font
@@ -4636,7 +4636,7 @@
 			(color 0 0 0 0.0000)
 		)
 		(uuid "b4c75508-242a-42f6-bbff-7db575bcc9ab")
-		(property "Sheetname" "DAC"
+		(property "Sheetname" "DAC Filter"
 			(at 156.21 67.8684 0)
 			(effects
 				(font

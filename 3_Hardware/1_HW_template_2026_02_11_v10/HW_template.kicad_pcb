@@ -1428,7 +1428,7 @@
 		)
 		(property ki_fp_filters "C_*")
 		(path "/b4c75508-242a-42f6-bbff-7db575bcc9ab/7abbec61-bfd1-455d-9d3f-bd071fe7ca65")
-		(sheetname "/DAC/")
+		(sheetname "/DAC Filter/")
 		(sheetfile "dac.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -3969,7 +3969,7 @@
 		)
 		(property ki_fp_filters "SolderJumper*Open*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/98a6fafc-3a62-4fe1-b794-7eb6c4f35d36")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(zone_connect 1)
 		(attr exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
@@ -5276,7 +5276,7 @@
 		)
 		(property ki_fp_filters "Pin* Test*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/3c178407-006b-4e89-bebf-8d46f01d380f")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr through_hole)
 		(fp_circle
@@ -5690,7 +5690,7 @@
 		)
 		(property ki_fp_filters "C_*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/d1e1d9a3-30a1-4df1-8232-2e7bb619ea0b")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -6830,7 +6830,7 @@
 		)
 		(property ki_fp_filters "R_*")
 		(path "/b4c75508-242a-42f6-bbff-7db575bcc9ab/eab5434e-0c3b-4d85-9a61-b6b91a4cb96f")
-		(sheetname "/DAC/")
+		(sheetname "/DAC Filter/")
 		(sheetfile "dac.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -9298,7 +9298,7 @@
 		)
 		(property ki_fp_filters "SOT?223*TabPin2*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/6c70729b-c864-4bea-8ada-d2f31c9ac462")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -12209,7 +12209,7 @@
 		)
 		(property ki_fp_filters "C_*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/28bcb172-ac12-43c3-a56e-5c9f06c842ff")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -15270,7 +15270,7 @@
 		)
 		(property ki_fp_filters "C_*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/61ef7b54-7c11-406f-a8f8-03576e25b5eb")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -15510,7 +15510,7 @@
 		)
 		(property ki_fp_filters "Pin* Test*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/97931d29-2a05-4733-ae86-bf13a8711a92")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr through_hole)
 		(fp_circle
@@ -15874,7 +15874,7 @@
 		)
 		(property ki_fp_filters "R_*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/6141bf85-feac-421c-9913-858a570df5f7")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr smd)
 		(fp_line
@@ -16703,7 +16703,7 @@
 		)
 		(property ki_fp_filters "Pin* Test*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/c090a9af-5ec7-4a5e-af68-8e803f4eb207")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr through_hole)
 		(fp_circle
@@ -17455,7 +17455,7 @@
 		)
 		(property ki_fp_filters "C_*")
 		(path "/5e115050-8562-4587-bd6e-3ff70d8e2215/899816ef-d268-4c69-b560-5d2fa7f8444c")
-		(sheetname "/power/")
+		(sheetname "/Power/")
 		(sheetfile "power.kicad_sch")
 		(attr smd)
 		(fp_line
