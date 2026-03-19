@@ -826,6 +826,14 @@
 		(color 0 0 0 0)
 		(uuid "0e71668a-1860-404b-b272-cc2357c8ce4a")
 	)
+	(no_connect
+		(at 137.16 96.52)
+		(uuid "1616546a-c0c5-4c40-883a-e80a3085dd01")
+	)
+	(no_connect
+		(at 137.16 104.14)
+		(uuid "9ebd28ab-add0-4113-8317-5fd20739cc82")
+	)
 	(wire
 		(pts
 			(xy 134.62 111.76) (xy 134.62 115.57)
@@ -1260,7 +1268,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical"
+		(property "Footprint" "Connector_PinSocket_2.54mm:PinSocket_1x06_P2.54mm_Vertical"
 			(at 149.86 120.65 0)
 			(effects
 				(font
