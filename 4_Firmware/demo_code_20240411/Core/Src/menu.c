@@ -45,12 +45,12 @@
  *****************************************************************************/
 static MENU_item_t MENU_transition = MENU_NONE;	///< Transition to this menu
 static MENU_entry_t MENU_entry[MENU_ENTRY_COUNT] = {
-		{"sin-",	"gle",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTBLUE},
-		{"Timer",	"+IRQ",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTGREEN},
-		{"DMA",	    "+IRQ",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTRED},
-		{"DMA",	    "dual",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTCYAN},
-		{"DMA",	    "scan",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTMAGENTA},
-		{"DMA",	    "scan_",	LCD_COLOR_BLACK,	LCD_COLOR_LIGHTYELLOW}
+		{"Meas",	"ure",		LCD_COLOR_WHITE,	LCD_COLOR_BLUE},
+		{"Res",		"ult",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTGREEN},
+		{"Con",		"tin.",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTGRAY},
+		{"ECG",		"Ref",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTGRAY},
+		{"Set",		"ting",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTGRAY},
+		{"Ab",		"out",		LCD_COLOR_BLACK,	LCD_COLOR_LIGHTYELLOW}
 };										///< All the menu entries
 
 
@@ -97,14 +97,12 @@ void MENU_hint(void)
 	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
 	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 	BSP_LCD_SetFont(&Font24);
-	BSP_LCD_DisplayStringAt(5,10, (uint8_t *)"DEMO-CODE", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(5, 10, (uint8_t *)"Heart-Rate Radar", LEFT_MODE);
 	BSP_LCD_SetFont(&Font16);
-	BSP_LCD_DisplayStringAt(5, 60, (uint8_t *)"Touch a menu item", LEFT_MODE);
-	BSP_LCD_DisplayStringAt(5, 80, (uint8_t *)"to start an ADC demo", LEFT_MODE);
-	BSP_LCD_DisplayStringAt(5, 110, (uint8_t *)"Switch DAC on/off", LEFT_MODE);
-	BSP_LCD_DisplayStringAt(5, 130, (uint8_t *)"with blue pushbutton", LEFT_MODE);
-	//BSP_LCD_DisplayStringAt(5, 160, (uint8_t *)"(c) hhrt@zhaw.ch", LEFT_MODE);
-	BSP_LCD_DisplayStringAt(5, 160, (uint8_t *)"Version 11.04.2024", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(5, 60, (uint8_t *)"Touch Measure", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(5, 80, (uint8_t *)"to start", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(5, 130, (uint8_t *)"PM4 Prototype", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(5, 160, (uint8_t *)"Version 1.0", LEFT_MODE);
 }
 
 

@@ -48,6 +48,11 @@ void DebugMon_Handler(void);
 void PendSV_Handler(void);
 void SysTick_Handler(void);
 
+/* Peripheral interrupt handlers used by the project */
+void DMA2_Stream4_IRQHandler(void);
+void EXTI0_IRQHandler(void);
+void EXTI15_10_IRQHandler(void);
+
 #ifdef __cplusplus
 }
 #endif
