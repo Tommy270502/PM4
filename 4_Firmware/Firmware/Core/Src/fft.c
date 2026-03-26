@@ -1,5 +1,5 @@
 /**
- * @file calc.c
+ * @file fft.c
  * @brief Calculate frequency spectrum
  * @author Hanspeter Hochreutener, hhrt@zhaw.ch
  * @author Patrick Rennhard, renn@zhaw.ch
@@ -13,7 +13,7 @@
 #include "stm32f429i_discovery.h"
 
 #include "radar.h"
-#include "calc.h"
+#include "fft.h"
 #include "main.h"
 
 /******************************************************************************
@@ -238,7 +238,7 @@ static arm_rfft_fast_instance_f32 fft_instance;	///< Twiddle factors, etc. for t
  * Functions
  *****************************************************************************/
 
-HAL_StatusTypeDef calc_init(void) {
+HAL_StatusTypeDef fft_init(void) {
 	HAL_StatusTypeDef ret_val;
 	arm_status ret;
 
@@ -252,7 +252,7 @@ HAL_StatusTypeDef calc_init(void) {
 	return ret_val;
 }
 
-HAL_StatusTypeDef calc_freq(const float32_t in[], float32_t out[]) {
+HAL_StatusTypeDef fft_freq(const float32_t in[], float32_t out[]) {
 	static float buffer1[RADAR_CHANNEL_SAMPLES];	// Temporary buffer 1
 	static float buffer2[RADAR_CHANNEL_SAMPLES];	// Temporary buffer 2
 

@@ -29,7 +29,7 @@
 #include "pushbutton.h"
 #include "menu.h"
 
-#include "calc.h"
+#include "fft.h"
 #include "display.h"
 #include "radar.h"
 #include "filters.h"
@@ -165,7 +165,7 @@ int main(void) {
 	// Set initial effect state (active for LOWPASS)
 	efect_active = (current_filter_index != FILTER_BYPASS);
 
-	ret_val = calc_init();
+	ret_val = fft_init();
 	error_handling(ret_val);
 
 	ekg_init(NULL);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
@@ -242,9 +242,9 @@ int main(void) {
 
 
 			// Use radar I/Q buffers for calculations.
-			ret_val = calc_freq(radar_i_samples, spectrum_i);
+			ret_val = fft_freq(radar_i_samples, spectrum_i);
 			error_handling(ret_val);
-			ret_val = calc_freq(radar_q_samples, spectrum_q);
+			ret_val = fft_freq(radar_q_samples, spectrum_q);
 			error_handling(ret_val);
 			
 

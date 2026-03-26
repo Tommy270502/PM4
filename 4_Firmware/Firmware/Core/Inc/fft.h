@@ -1,13 +1,13 @@
 /**
- * @file calc.h
+ * @file fft.h
  * @brief Calculate frequency spectrum
  * @author Hanspeter Hochreutener, hhrt@zhaw.ch
  * @author Patrick Rennhard, renn@zhaw.ch
  * @date 2025-09-03
  */
 
-#ifndef CALC_H_
-#define CALC_H_
+#ifndef FFT_H_
+#define FFT_H_
 
 /******************************************************************************
  * Includes
@@ -38,7 +38,7 @@
  * @note Must be called once during system initialization before using
  *       any FFT signal processing functions.
  */
-HAL_StatusTypeDef calc_init(void);
+HAL_StatusTypeDef fft_init(void);
 
 /**
  * @brief Computes the frequency spectrum of an input signal using FFT.
@@ -57,9 +57,9 @@ HAL_StatusTypeDef calc_init(void);
  *         - HAL_OK: Frequency spectrum calculation succeeded.
  *
  * @note The FFT instance (`fft_instance`) and scaling factor (`fft_abs_scale`)
- *       must be initialized beforehand by calling `calc_init()`.
+ *       must be initialized beforehand by calling `fft_init()`.
  *       The output contains only the positive frequency bins.
  */
-HAL_StatusTypeDef calc_freq(const float32_t in[], float32_t out[]);
+HAL_StatusTypeDef fft_freq(const float32_t in[], float32_t out[]);
 
 #endif
