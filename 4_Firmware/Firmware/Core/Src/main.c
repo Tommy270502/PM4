@@ -33,6 +33,7 @@
 #include "display.h"
 #include "audio_codec.h"
 #include "filters.h"
+#include "ekg.h"
 
 /******************************************************************************
  * Defines
@@ -48,6 +49,7 @@
 #define DISP_LOOP_M7 	4	// ...
 #define DISP_LOOP_M8 	4	// ...
 #define DISP_LOOP_M9 	4	// ...
+#define DISP_LOOP_M10 	4	// EKG BPM
 
 // Define the maximum number of points for the time signal (Display 240 x 320 pixels)
 #define MAX_TIME_SIGNAL_POINTS 240
@@ -86,6 +88,9 @@ static const char* filter_names[] = {
 	"BANDPASS",
 	"NOTCH"
 };
+
+static ekg_output_t ekg_latest = {0};
+static uint32_t ekg_last_peak_tick = 0;
 
 /******************************************************************************
  * Functions
@@ -164,6 +169,8 @@ int main(void) {
 	ret_val = calc_init();
 	error_handling(ret_val);
 
+	ekg_init(NULL);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
+
 	/* Infinite while loop */
 	while (1) {							// Infinitely loop in main function
 
@@ -188,6 +195,7 @@ int main(void) {
 		case MENU_SEVEN:
 		case MENU_EIGHT:
 		case MENU_NINE:
+		case MENU_TEN:
 			disp_refresh = true;	// Switch to new menu item
 			break;
 		default:	// Should never occur
@@ -209,6 +217,15 @@ int main(void) {
 			disp_refresh = true;
 			// Force immediate display refresh by resetting loop counter
 			disp_loop_count[MENU_FOUR] = DISP_LOOP_M4;
+		}
+
+		if (ekg_process_if_ready(&ekg_latest)) {
+			if (ekg_latest.r_peak) {
+				ekg_last_peak_tick = HAL_GetTick();
+			}
+			if (MENU_get_active() == MENU_TEN) {
+				disp_refresh = true;
+			}
 		}
 
 		if (codec_data_ready()) {
@@ -323,6 +340,47 @@ int main(void) {
 			case MENU_NINE:
 				// ToDo ....
 				break;
+			case MENU_TEN:	// EKG BPM
+				if (disp_loop_count[MENU_TEN]++ >= DISP_LOOP_M10) {
+					char text[32];
+					uint32_t now = HAL_GetTick();
+					disp_loop_count[MENU_TEN] = 0;
+					disp_clear_data();
+
+					BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+					BSP_LCD_SetFont(&Font20);
+					BSP_LCD_DisplayStringAt(0, 10, (uint8_t*) "EKG Monitor", CENTER_MODE);
+
+					BSP_LCD_SetFont(&Font24);
+					if (ekg_latest.bpm_valid) {
+						snprintf(text, sizeof(text), "BPM: %3d", (int) (ekg_latest.bpm + 0.5f));
+						BSP_LCD_SetTextColor(LCD_COLOR_RED);
+					} else {
+						snprintf(text, sizeof(text), "BPM: ---");
+						BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+					}
+					BSP_LCD_DisplayStringAt(0, 70, (uint8_t*) text, CENTER_MODE);
+
+					BSP_LCD_SetFont(&Font16);
+					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+					snprintf(text, sizeof(text), "ADC: %4u", (unsigned int) ekg_latest.raw);
+					BSP_LCD_DisplayStringAt(0, 130, (uint8_t*) text, CENTER_MODE);
+
+					if ((now - ekg_last_peak_tick) < 140U) {
+						BSP_LCD_SetTextColor(LCD_COLOR_RED);
+						BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "R-PEAK", CENTER_MODE);
+					} else {
+						BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+						BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "      ", CENTER_MODE);
+					}
+
+					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+					snprintf(text, sizeof(text), "Overrun: %lu",
+							(unsigned long) ekg_get_overrun_count());
+					BSP_LCD_DisplayStringAt(0, 210, (uint8_t*) text, CENTER_MODE);
+				}
+				break;
 			default:
 				// Should never occur
 				break;
@@ -433,4 +491,3 @@ __attribute__((weak)) void _isatty(void) {
 /*__attribute__((weak)) void _write(void)
  {
  }*/
-

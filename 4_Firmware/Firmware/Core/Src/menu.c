@@ -83,7 +83,9 @@ LCD_COLOR_BLACK, LCD_COLOR_LIGHTCYAN },
 { "Stereo", "Width",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTGREEN },
 { "RMS", "Level",
-LCD_COLOR_BLACK, LCD_COLOR_LIGHTBLUE } };		///< All the menu entries
+LCD_COLOR_BLACK, LCD_COLOR_LIGHTBLUE },
+{ "EKG", "BPM",
+LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED } };		///< All the menu entries
 
 /******************************************************************************
  * Functions
@@ -418,4 +420,3 @@ void EXTI15_10_IRQHandler(void)
         EXTI->PR |= EXTI_PR_PR15;		// Clear pending interrupt on line 15
     }
 }
-

@@ -20,7 +20,7 @@
 /******************************************************************************
  * Defines
  *****************************************************************************/
-#define MENU_TOTAL_ENTRIES		10		///< Total number of menu entries available
+#define MENU_TOTAL_ENTRIES		11		///< Total number of menu entries available
 #define MENU_VISIBLE_ENTRIES	5		///< Number of menu entries visible on screen
 #define MENU_ARROW_SLOTS		2		///< Number of arrow slots (left + right)
 #define MENU_CONTENT_SLOTS		3		///< Number of content slots (visible - arrows)
@@ -40,7 +40,7 @@
 /** Enumeration of possible menu items */
 typedef enum {
 	MENU_ZERO = 0, MENU_ONE, MENU_TWO, MENU_THREE, MENU_FOUR, 
-	MENU_FIVE, MENU_SIX, MENU_SEVEN, MENU_EIGHT, MENU_NINE,
+	MENU_FIVE, MENU_SIX, MENU_SEVEN, MENU_EIGHT, MENU_NINE, MENU_TEN,
 	MENU_SCROLL_LEFT, MENU_SCROLL_RIGHT, MENU_NONE
 } MENU_item_t;
 /** Struct with fields of a menu entry */
@@ -71,4 +71,3 @@ bool MENU_can_scroll_right(void);
 
 
 #endif
-
