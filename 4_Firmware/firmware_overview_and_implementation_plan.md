@@ -1,4 +1,5 @@
 # Firmware System Overview and Implementation Roadmap
+
 ### Contactless Heart-Rate Radar Prototype
 
 ---
@@ -10,6 +11,7 @@ from radar I/Q signals, shows the result on the LCD, and is controlled through t
 touchscreen.
 
 **Milestone 1**
+
 - radar only
 - single-shot measurement flow
 - LCD result display
@@ -17,6 +19,7 @@ touchscreen.
 - no ECG processing yet
 
 **Later milestones**
+
 - continuous radar measurement
 - ECG reference acquisition and comparison
 - OpenLog result logging
@@ -28,41 +31,60 @@ touchscreen.
 
 This section is the consolidated hardware reference for firmware work.
 
-| Item | Value / role | Notes |
-|---|---|---|
-| MCU board | STM32F429 Discovery | Main development platform |
-| LCD | 240 × 320 px | Layout target for UI screens |
-| Main sensor | Radar module with conditioned I and Q outputs | Primary HR source |
-| Radar analog conditioning | ~80 dB gain, analog band-pass ~0.1 Hz to 10 Hz | Implemented on custom PCB |
-| Radar signal DC level | About 2.25–2.5 V | Must be removed in firmware before analysis |
-| Radar I channel | PC1 = ADC123_IN11 | Fixed as I |
-| Radar Q channel | PC3 = ADC123_IN13 | Fixed as Q |
-| Recommended ADC mapping | ADC1 → PC1 (I), ADC2 → PC3 (Q) | Chosen to remove ambiguity in unpacking and FFT preparation |
-| Preferred radar ADC mode | ADC1 + ADC2 dual simultaneous | Best fit for true I/Q phase consistency |
-| Optional reference sensor | ECG conditioned analog signal | Later comparison only |
-| ECG input | PF6 = ADC3_IN4 | Optional later feature |
-| UI | LCD + touchscreen | Main user interaction |
-| Extra control | Blue user pushbutton on PA0 | Fallback/manual action |
-| Logging (later) | PG14 = USART6_TX to OpenLog | TX-only, not part of milestone 1 |
-| Board-specific caveat | Discovery-board gyro conflict around PC1 | Keep `gyro_disable()` logic |
+| Item                      | Value / role                                   | Notes                                                                               |
+| ------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------- |
+| MCU board                 | STM32F429 Discovery                            | Main development platform                                                           |
+| LCD                       | 240 × 320 px                                   | Layout target for UI screens                                                        |
+| Main sensor               | Radar module with conditioned I and Q outputs  | Primary HR source                                                                   |
+| Radar analog conditioning | ~80 dB gain, analog band-pass ~0.1 Hz to 10 Hz | Implemented on custom PCB                                                           |
+| Radar signal DC level     | About 2.25–2.5 V                               | Must be removed in firmware before analysis                                         |
+| Radar I channel           | PC1 = ADC123_IN11                              | Fixed in hardware                                                                   |
+| Radar Q channel           | PC3 = ADC123_IN13                              | Fixed in hardware                                                                   |
+| Preferred radar ADC mode  | ADC1 + ADC2 dual simultaneous                  | Best fit for true I/Q phase consistency                                             |
+| ADC-to-channel mapping    | Implementation choice                          | The code and document must state explicitly which ADC samples I and which samples Q |
+| Optional reference sensor | ECG conditioned analog signal                  | Later comparison only                                                               |
+| ECG input                 | PF6 = ADC3_IN4                                 | Fixed hardware choice for the ECG path                                              |
+| UI                        | LCD + touchscreen                              | Main user interaction                                                               |
+| Extra control             | Blue user pushbutton on PA0                    | Fallback/manual action                                                              |
+| Logging (later)           | PG14 = USART6_TX to OpenLog                    | TX-only, not part of milestone 1                                                    |
+| Board-specific caveat     | Discovery-board gyro conflict around PC1       | Keep `gyro_disable()` logic                                                         |
 
-The current project already initializes LCD, touchscreen, LEDs, and the user button
-in `main.c`, and `main.h` currently defines `EVAL_REV_E` and `FLIPPED_LCD`. The
-board-specific gyro-disable workaround is also already part of startup.
+### Important mapping rule
 
-### Milestone-1 acquisition choice
+The **hardware truth** is:
 
-For the radar path, the recommended first architecture is:
-- ADC1 on PC1 = I
-- ADC2 on PC3 = Q
-- dual simultaneous mode
-- timer-triggered
-- DMA transfer of packed 32-bit dual-ADC samples
+- PC1 is **I**
+- PC3 is **Q**
 
-This matches the existing dual-ADC demo concept and the FFT note, which explicitly
-describes packed dual-ADC data and conversion into complex FFT input. In the packed
-register, `ADC_CDR[31:0] = ADC2_DR[15:0] | ADC1_DR[15:0]`, so with the mapping
-above the lower 16 bits are I and the upper 16 bits are Q.
+The exact ADC numbering is **not** the hardware truth and is therefore not the
+primary architectural anchor. The implementation may choose either of these:
+
+- ADC1 = I on PC1 and ADC2 = Q on PC3
+- or ADC1 = Q on PC3 and ADC2 = I on PC1
+
+Both are acceptable **only if documented unambiguously** in all three places:
+
+1. ADC initialization comments and function naming
+2. packed dual-ADC unpacking logic
+3. complex FFT input construction order
+
+### Current code-base reality
+
+The current code base already contains a working dual-ADC demo path and is therefore
+a useful starting point for milestone 1, but it is still demo-oriented rather than
+product-oriented:
+
+- menu text still describes ADC demonstrations
+- the main loop still contains demo behavior such as periodic LED toggling and a
+  fixed `HAL_Delay(200)`
+- the blue pushbutton still toggles DAC demo behavior
+- the dual-ADC function names still reflect the original demo mapping rather than
+  the product terminology
+- display code is still partly embedded in `measuring.*` for demo purposes
+
+This means the architecture itself remains valid, but the document must describe the
+current code honestly as a **starting point for refactoring**, not as an already
+implemented product firmware.
 
 ---
 
@@ -70,7 +92,7 @@ above the lower 16 bits are I and the upper 16 bits are Q.
 
 Keep the current CubeIDE layout unchanged:
 
-```
+```text
 Root/
    Core/
       Inc/
@@ -91,21 +113,23 @@ Root/
 - no large-scale folder reorganization
 
 **Existing files that remain central**
+
 - `main.c` / `main.h`
 - `measuring.c` / `measuring.h`
 - `menu.c` / `menu.h`
 - `pushbutton.c` / `pushbutton.h`
 
 **Focused additions for milestone 1**
+
 - `fft.c` / `fft.h`
 - `hr.c` / `hr.h`
 
 **Later additions only**
+
 - `log.c` / `log.h`
 - `ecg.c` / `ecg.h`
 
-This follows the project note while staying close to the current structure and naming
-style.
+This stays close to the current structure and avoids unnecessary disruption.
 
 ---
 
@@ -114,41 +138,61 @@ style.
 ### 4.1 Fixed for milestone 1
 
 These should not be revisited unless a concrete hardware problem appears:
+
 - use the current CubeIDE project structure
 - keep `main`, `measuring`, `menu`, and `pushbutton`
 - add `fft` and `hr`
 - use radar-only
-- use single-shot user flow: Start → Measuring… → Result
+- use single-shot user flow: Start -> Measuring… -> Result
 - use ADC1 + ADC2 dual simultaneous mode
-- use ADC1 → I (PC1) and ADC2 → Q (PC3)
 - use timer-triggered acquisition + DMA
 - use CMSIS complex FFT
 - keep touchscreen handling by polling, not by interrupt
 - keep the board-specific `gyro_disable()` step before analog use of PC1
+- keep ECG entirely out of milestone 1
+- keep PF6 reserved for the future ECG path
 
-The touchscreen polling choice is supported by the current menu code, which explicitly
-notes timing issues when touchscreen interrupt mode is enabled.
+### 4.2 Fixed hardware truth vs implementation choice
 
-### 4.2 Tunable later
+The following distinction must remain explicit:
+
+**Fixed hardware truth**
+
+- PC1 is I
+- PC3 is Q
+
+**Implementation choice**
+
+- which ADC number samples PC1
+- which ADC number samples PC3
+
+Because the current code base already contains a legacy dual-ADC demo with its own
+naming, the safest documentation rule is:
+
+> Never describe I and Q only through ADC numbers. Always describe them first
+> through their physical pins, then state the chosen ADC mapping.
+
+### 4.3 Tunable later
 
 These are starting values, not permanent truth:
+
 - sample rate
 - measurement window length
 - FFT size
 - exact HR search range
 - result smoothing strategy
 - whether to zero-pad
-- whether to display radar and ECG on separate or combined screens
+- UI wording
 - logging format and logging mechanism
 
 **Recommended starting values**
 
-| Parameter | Value |
-|---|---|
-| Sample rate | 100 Hz |
-| Window length | 1024 samples |
-| Measurement time | 10.24 s |
-| FFT size | 1024 |
+| Parameter        | Value        |
+| ---------------- | ------------ |
+| Sample rate      | 100 Hz       |
+| Window length    | 1024 samples |
+| Measurement time | 10.24 s      |
+| FFT size         | 1024         |
 
 **HR search band**
 
@@ -157,6 +201,7 @@ Use a provisional search band of 0.8 Hz to 3.0 Hz, equivalent to 48 bpm to 180 b
 **Frequency resolution reminder**
 
 With 1024 samples at 100 Hz:
+
 - frequency-bin spacing ≈ 0.098 Hz
 - equivalent HR spacing ≈ 5.9 bpm
 
@@ -168,19 +213,18 @@ That is acceptable for a first single-shot prototype.
 
 The project does not need rigid MVC enforcement. A lighter split is better:
 
-| Module | Role |
-|---|---|
-| `main.*` | coordinates application flow |
-| `measuring.*` | acquires and validates raw data |
-| `hr.*` | converts radar data into HR |
-| `fft.*` | wraps CMSIS FFT usage |
-| `menu.*` | handles screen/menu interaction |
-| `pushbutton.*` | handles the blue button |
-| `log.*` (later) | handles OpenLog |
-| `ecg.*` (later) | handles ECG reference |
+| Module          | Role                            |
+| --------------- | ------------------------------- |
+| `main.*`        | coordinates application flow    |
+| `measuring.*`   | acquires and validates raw data |
+| `hr.*`          | converts radar data into HR     |
+| `fft.*`         | wraps CMSIS FFT usage           |
+| `menu.*`        | handles screen/menu interaction |
+| `pushbutton.*`  | handles the blue button         |
+| `log.*` (later) | handles OpenLog                 |
+| `ecg.*` (later) | handles ECG reference           |
 
-This is consistent with the project note, which places acquisition in `measuring.*`,
-FFT in `fft.*`, and user-input/display logic outside the model.
+This remains the best balance between clarity and minimal refactoring.
 
 ---
 
@@ -189,6 +233,7 @@ FFT in `fft.*`, and user-input/display logic outside the model.
 ### 6.1 `main.*`
 
 Owns:
+
 - initialization order
 - application state
 - current screen
@@ -198,12 +243,13 @@ Owns:
 - reacting to frame-ready and result-ready events
 - storing the last result for the Result screen
 
-`main.c` already acts as the coordinator; it just needs to become product-oriented
-instead of demo-oriented.
+`main.c` already acts as the coordinator, but still needs to be converted from
+demo-oriented behavior to product-oriented behavior.
 
 ### 6.2 `measuring.*`
 
 Owns:
+
 - GPIO analog configuration
 - timer setup
 - ADC setup
@@ -221,9 +267,22 @@ Owns:
 Clip detection belongs in `measuring.*`. Clipping is an acquisition-quality problem
 and should be attached to the frame before processing starts.
 
+**Important code-base note**
+
+The current dual-ADC demo is a useful basis, but it must not be treated as already
+validated product acquisition code. During refactoring, the radar acquisition path
+must be cleaned up in at least these areas:
+
+- function naming and comments must match the chosen I/Q mapping
+- sample-time configuration must be checked and rewritten so it matches the actual
+  selected channels
+- packed DMA data must be unpacked with 12-bit masking
+- display-specific behavior must be removed from `measuring.*`
+
 **Recommended first clip rule**
 
 Set a channel clip flag if any 12-bit raw sample is near either rail:
+
 - `sample <= 8`
 - or `sample >= 4087`
 
@@ -233,18 +292,19 @@ The exact thresholds can be tuned later.
 
 `dma_overrun` is set `true` if a newly completed DMA frame would overwrite a frame
 that the application has not yet consumed. A practical first rule is:
+
 - keep an internal "frame pending / not yet consumed" condition
 - if the DMA transfer-complete handler fires while that condition is still true,
   set `dma_overrun = true`
 
 In milestone-1 single-shot mode this flag should normally stay `false`, but keeping
 it in the shared frame struct means the same struct can be reused for continuous mode
-later. The current project already uses the global readiness flag `MEAS_data_ready`,
-so this concept fits naturally into the existing style.
+later.
 
 ### 6.3 `hr.*`
 
 Owns:
+
 - conversion of raw ADC counts to float
 - per-window offset removal
 - optional normalization
@@ -261,6 +321,7 @@ while `hr.*` owns the conversion from raw samples into analysis-ready radar data
 ### 6.4 `fft.*`
 
 Owns:
+
 - CMSIS FFT instance initialization
 - FFT execution wrapper
 - magnitude computation
@@ -276,47 +337,55 @@ float32_t cfft_inout[2 * FFT_SIZE];
 
 That is 2 × N floats, because real and imaginary parts are interleaved. Using only
 `FFT_SIZE` floats is a known way to trigger a hard fault when calling
-`arm_cfft_f32()`. The FFT note states both the required 2·N buffer length and the
-hard-fault risk explicitly.
+`arm_cfft_f32()`.
 
 ### 6.5 `menu.*`
 
 Owns:
+
 - menu drawing
 - touch polling
 - transition detection
 - basic navigation support
 
-The current menu module is reusable, but its text and menu semantics must change from
-ADC demos to product actions. The project currently uses a six-entry menu model via
-`MENU_ENTRY_COUNT`.
+The current menu module is reusable, but its text and semantics must change from ADC
+demos to product actions. The six-entry top-level menu concept should remain.
 
 ### 6.6 `pushbutton.*`
 
 Owns:
+
 - button initialization
 - IRQ setup
-- debounced pressed flag
+- a simple pressed flag
 
-In the current code the blue button toggles DAC behavior; in the product firmware it
-should become a fallback action such as start measurement, cancel measurement, or
-return to menu. The current pushbutton module already uses a simple
-interrupt-plus-flag design and identifies the USER button as PA0.
+The current pushbutton module is **not yet a debounced button abstraction**.
+It is currently a simple interrupt-plus-flag design and should be described that way.
+
+For the product firmware, the blue button should become a fallback action such as:
+
+- start measurement
+- cancel measurement
+- return to menu
+
+Debounce can be added later if needed, but it should not be claimed as already
+implemented.
 
 ### 6.7 `log.*` (later)
 
 Owns:
+
 - USART6 TX initialization on PG14
 - formatting final result + metadata
 - best-effort transmit
 
-For sparse result logging, interrupt-driven UART transmit is the simplest good
-starting point.
+For sparse result logging, TX-only transmission remains the right starting point.
 
 ### 6.8 `ecg.*` (later)
 
 Owns:
-- optional ECG acquisition
+
+- optional ECG acquisition on PF6 / ADC3_IN4
 - ECG HR extraction or reference handling
 - comparison with radar HR
 
@@ -332,9 +401,7 @@ These are conceptual interface anchors so that `main`, `measuring`, `hr`, and la
 **Flag-type convention**
 
 Use `bool` from `<stdbool.h>` consistently for shared flags such as `valid`,
-`clip_i`, `clip_q`, `dma_overrun`, and `last_result_available`. This matches the
-current project headers, which already use `bool` for shared state such as
-`MEAS_data_ready`, `DAC_active`, and the pushbutton API.
+`clip_i`, `clip_q`, `dma_overrun`, and `last_result_available`.
 
 ### 7.1 Radar frame structure
 
@@ -352,6 +419,7 @@ typedef struct {
 ```
 
 Why this shape is recommended:
+
 - simple to understand
 - raw I and Q remain clearly separated
 - metadata and quality flags travel with the frame
@@ -372,12 +440,9 @@ typedef struct {
 } HR_Result_t;
 ```
 
-- `valid` is enough for milestone 1; a confidence score can be added later
+- `valid` is enough for milestone 1
 - `clipped` helps the UI and later logging explain suspicious results
 - `peak_hz` is useful during debugging and later result review
-
-These definitions are not intended as final compiled code yet, but they should be
-treated as the interface anchor when creating `measuring.h` and `hr.h`.
 
 ---
 
@@ -386,8 +451,8 @@ treated as the interface anchor when creating `measuring.h` and `hr.h`.
 ### 8.1 Radar path
 
 1. timer triggers acquisition
-2. ADC1 samples I on PC1
-3. ADC2 samples Q on PC3
+2. one ADC samples PC1 = I
+3. the other ADC samples PC3 = Q
 4. DMA transfers packed 32-bit dual-ADC words
 5. `measuring.*` unpacks them into `raw_i[]` and `raw_q[]`
 6. `measuring.*` checks clipping and overrun flags
@@ -398,30 +463,48 @@ treated as the interface anchor when creating `measuring.h` and `hr.h`.
 11. `hr.*` searches the peak within the HR band
 12. `main.*` stores and displays the result
 
-This is aligned with both the project note and the FFT guidance for complex I/Q
-processing.
+### 8.2 Required unpacking rule
 
-### 8.2 Raw-to-analysis conversion split
-
-**In `measuring.*`**
-- packed DMA buffer acquired
-- unpack into integer arrays using the packed register layout
-  `ADC_CDR[31:0] = ADC2_DR[15:0] | ADC1_DR[15:0]`:
+In dual mode the packed register layout is:
 
 ```c
-raw_i[n] = (uint16_t)( packed_sample        & 0x0FFF);  // ADC1, lower 16 bits = I
-raw_q[n] = (uint16_t)((packed_sample >> 16) & 0x0FFF);  // ADC2, upper 16 bits = Q
+ADC_CDR[31:0] = ADC2_DR[15:0] | ADC1_DR[15:0]
+```
+
+Therefore the unpacking code must always follow the **chosen** ADC-to-channel
+mapping.
+
+Two valid examples are shown below.
+
+**Example A: ADC1 = I, ADC2 = Q**
+
+```c
+raw_i[n] = (uint16_t)( packed_sample        & 0x0FFF);  // ADC1 -> I
+raw_q[n] = (uint16_t)((packed_sample >> 16) & 0x0FFF);  // ADC2 -> Q
+```
+
+**Example B: ADC1 = Q, ADC2 = I**
+
+```c
+raw_q[n] = (uint16_t)( packed_sample        & 0x0FFF);  // ADC1 -> Q
+raw_i[n] = (uint16_t)((packed_sample >> 16) & 0x0FFF);  // ADC2 -> I
 ```
 
 The 12-bit mask `0x0FFF` is required. Without it, alignment bits from the ADC data
-register are included in the values passed to the clip check and float conversion,
-producing subtly wrong results rather than an obvious failure.
+register are included in the values passed to the clip check and float conversion.
 
+### 8.3 Raw-to-analysis conversion split
+
+**In `measuring.*`**
+
+- packed DMA buffer acquired
+- unpack into integer arrays
 - fill `MEAS_RadarFrame_t`
 - set clip and overrun flags
 - raise frame-ready flag
 
 **In `hr.*`**
+
 - cast integer arrays to float
 - compute `mean(I)` and `mean(Q)`
 - subtract means
@@ -438,53 +521,39 @@ This separation removes ambiguity about where offset removal happens.
 
 ### 9.1 Milestone-1 states
 
-| State | Meaning |
-|---|---|
-| `BOOT` | System initialization in progress |
-| `IDLE` | Main menu visible, waiting for user input |
-| `MEASURING` | DMA acquisition active, screen shows "Measuring…" |
-| `PROCESSING` | Frame complete, HR extraction running |
-| `RESULT` | HR result displayed on screen |
-| `ERROR` | Unrecoverable fault |
+| State        | Meaning                                           |
+| ------------ | ------------------------------------------------- |
+| `BOOT`       | System initialization in progress                 |
+| `IDLE`       | Main menu visible, waiting for user input         |
+| `MEASURING`  | DMA acquisition active, screen shows "Measuring…" |
+| `PROCESSING` | Frame complete, HR extraction running             |
+| `RESULT`     | HR result displayed on screen                     |
+| `ERROR`      | Unrecoverable fault                               |
 
 ### 9.2 Transition model
 
-```
+```text
 BOOT        -> IDLE         on initialization complete
 
 IDLE        -> MEASURING    on "Measure" menu action or button fallback
 MEASURING   -> PROCESSING   when DMA frame is complete
 MEASURING   -> IDLE         on cancel/back action
 PROCESSING  -> RESULT       when HR_Result_t is available
-PROCESSING  -> ERROR        on processing timeout (e.g. 30 s watchdog)
+PROCESSING  -> ERROR        on processing timeout
 RESULT      -> IDLE         on touch/back/restart
 
 Any state   -> ERROR        on unrecoverable initialization or acquisition fault
 ERROR       -> IDLE         on retry/reset action
 ```
 
-The `PROCESSING -> ERROR` timeout path is important: if a bug in `hr.*` or `fft.*`
-causes `HR_Result_t` to never be produced, the device would otherwise be permanently
-stuck in PROCESSING with "Measuring…" on screen and no way out except a hardware
-reset. A simple elapsed-time check in the main loop is sufficient for milestone 1.
-
 ### 9.3 PROCESSING duration
 
-At 1024 samples, the CMSIS FFT and HR extraction will complete in well under a
-second on this MCU. For milestone 1, HR processing can therefore run to completion
-in the main loop immediately after the frame-ready flag is detected. Non-blocking or
-deferred processing is not required at this stage.
+At 1024 samples, the CMSIS FFT and HR extraction should complete well under a second
+on this MCU. For milestone 1, HR processing can therefore run to completion in the
+main loop immediately after the frame-ready flag is detected.
 
-### 9.4 Later state extensions
-
-```
-IDLE            -> CONTINUOUS
-CONTINUOUS      -> CONTINUOUS   repeated acquire/process/display loop
-CONTINUOUS      -> IDLE         on stop action
-
-IDLE            -> ECG_REFERENCE
-ECG_REFERENCE   -> RESULT / COMPARISON
-```
+A timeout is still recommended so the device cannot get stuck permanently in the
+`PROCESSING` state.
 
 ---
 
@@ -495,34 +564,37 @@ should keep six entries as well.
 
 ### 10.1 Suggested menu entries
 
-| Entry | Milestone-1 behavior |
-|---|---|
-| Measure | Starts single-shot radar measurement flow |
-| Result | Shows last stored `HR_Result_t`; shows "No result yet" if none |
-| Continuous | Placeholder — shows "Not implemented yet" |
-| ECG Ref | Placeholder — shows "Not implemented yet" |
-| Settings | Reserved for later options |
-| About | Static project information screen |
+| Entry      | Milestone-1 behavior                                           |
+| ---------- | -------------------------------------------------------------- |
+| Measure    | Starts single-shot radar measurement flow                      |
+| Result     | Shows last stored `HR_Result_t`; shows "No result yet" if none |
+| Continuous | Placeholder — shows "Not implemented yet"                      |
+| ECG Ref    | Placeholder — shows "Not implemented yet"                      |
+| Settings   | Reserved for later options                                     |
+| About      | Static project information screen                              |
 
-**Result entry clarification:** Result is a last-result screen, not a second way to
-trigger measurement. This removes any ambiguity about its role.
+**Result entry clarification**
 
-**Placeholder entries:** non-functional entries should show a brief message and
-return to the menu on touch, so that the menu never presents a silent dead-end during
-a demo or review.
+Result is a last-result screen, not a second way to trigger measurement.
+
+**Placeholder entries**
+
+Non-functional entries should show a brief message and return to the menu on touch,
+so that the menu never presents a silent dead-end during a demo or review.
 
 ### 10.2 Measuring screen
 
 Show:
+
 - `Radar measurement`
 - `Measuring…`
 
-The "Measuring…" screen can remain visible through the PROCESSING state for
-simplicity. At the expected processing time, the user will not notice the transition.
+The same screen may remain visible during the short processing phase.
 
 ### 10.3 Result screen
 
 Show:
+
 - large radar HR value in bpm
 - `Valid result` or `No valid result`
 - simple return hint, e.g. `Touch to return`
@@ -536,77 +608,71 @@ Show:
 
 ## 11. Unified implementation roadmap
 
-### Step 1 — Align HAL configuration
-
-Update `stm32f4xx_hal_conf.h` to enable the modules actually needed now:
-- ADC
-- TIM
-- UART (later)
-- DAC only if still temporarily needed during migration
-
-Right now ADC, TIM, and UART are commented out.
-
-### Step 2 — Convert the UI shell from demo to product
+### Step 1 — Convert the UI shell from demo to product
 
 In `menu.c` and `main.c`:
-- replace ADC demo labels and startup text
+
+- replace ADC-demo labels and startup text
 - remove demo wording such as `Touch a menu item to start an ADC demo`
 - stop routing menu items into unrelated ADC experiments
+- remove continuous demo LED behavior from the product flow
+- remove the fixed `HAL_Delay(200)` from the normal application loop
 - keep LCD init, touchscreen init, and polling-based interaction
 
-The current `menu.c` still contains ADC-demo labels, so this change should happen
-early.
+### Step 2 — Remove DAC-demo semantics from the product path
 
-### Step 3 — Remove DAC-demo semantics from product flow
+In `main.c`, `measuring.c`, and `pushbutton.c`:
 
-In `main.c` and `pushbutton.c`:
 - stop using the blue button to toggle DAC demo behavior
-- repurpose it as fallback start/cancel/back input
+- repurpose the button as fallback start/cancel/back input
+- keep DAC-related code only if still needed temporarily during migration
+- otherwise remove it from the milestone-1 runtime path
 
-The current `main.c` still toggles `DAC_active` from the button path.
-
-### Step 4 — Define shared frame/result interfaces
+### Step 3 — Define shared frame/result interfaces
 
 Before deeper refactoring, add the project-level interface anchors to headers:
+
 - `MEAS_RadarFrame_t`
 - `HR_Result_t`
 
 This avoids incompatible representations appearing independently in `main`,
 `measuring`, `hr`, and later `log`.
 
-### Step 5 — Rework `measuring.*` around the real radar path
+### Step 4 — Rework `measuring.*` around the real radar path
 
 Keep:
+
 - timer-driven acquisition concept
 - DMA use
 - dual-ADC concept
 - completion interrupt pattern
 
 Change:
-- map channels to the real radar inputs (ADC1 → PC1 = I, ADC2 → PC3 = Q)
-- use ADC1 + ADC2 dual simultaneous mode
-- unpack packed ADC data into the frame struct using the 12-bit mask rule from §8.2
+
+- rename or clearly re-comment legacy demo functions so they match the chosen
+  implementation mapping
+- document explicitly which ADC number samples PC1 = I and which ADC number samples
+  PC3 = Q
+- correct sample-time configuration so it matches the actual selected channels
+- unpack packed ADC data using the 12-bit mask rule
 - add clipping and overrun flags
 - stop treating display as a responsibility of `measuring.*`
 
-This is consistent with the project note, which places sampling and converted sample
-storage in `measuring.*`. `measuring.c` itself also states that displaying should be
-moved to a separate file in the final version.
-
-### Step 6 — Add `fft.*`
+### Step 5 — Add `fft.*`
 
 Implement:
+
 - CMSIS complex FFT init
 - FFT execution wrapper
 - magnitude helper
 - peak-search helper
 
-Use the FFT note directly for buffer layout and initialization shape. Remember the
-`2 * FFT_SIZE` float buffer rule from §6.4.
+Remember the `2 * FFT_SIZE` float buffer rule.
 
-### Step 7 — Add `hr.*`
+### Step 6 — Add `hr.*`
 
 Implement:
+
 - raw I/Q to float conversion
 - offset subtraction
 - optional normalization
@@ -615,75 +681,89 @@ Implement:
 - BPM conversion
 - `HR_Result_t` output
 
-This is the core milestone-1 algorithm layer.
-
-### Step 8 — Wire up the single-shot flow in `main.c`
+### Step 7 — Wire up the single-shot flow in `main.c`
 
 Target flow:
 
-```
+```text
 IDLE
  -> start command
  -> MEAS_start_radar_single()
  -> wait for frame-ready flag
- -> HR_process_radar_frame()   // runs to completion in main loop
+ -> HR_process_radar_frame()
  -> store last result
  -> show result screen
  -> return to IDLE on user action
 ```
 
-Include a processing timeout check covering the `PROCESSING` state as described in
-§9.2.
+Include a processing timeout check covering the `PROCESSING` state.
 
-### Step 9 — Verify on-screen milestone
+### Step 8 — Verify on-screen milestone
 
 The first real milestone is reached when:
+
 - the user can start a radar measurement from the menu
-- the device shows "Measuring…"
+- the device shows `Measuring…`
 - one `HR_Result_t` is produced
 - the result is shown on the LCD
 - the Result menu entry can re-display the same last result
 
-### Step 10 — Clean up interrupt declarations
+### Step 9 — Clean up comments, headers, and declarations
 
-`stm32f4xx_it.h` currently declares only the core exception handlers. That is
-acceptable temporarily because the current template places peripheral IRQ handlers
-directly in feature modules such as `pushbutton.c`, `menu.c`, and `measuring.c`.
+During or after the radar refactor, clean up the current code base so the source
+matches reality:
 
-Once the radar acquisition path stabilizes, add declarations for the project-used
-peripheral IRQ handlers to `stm32f4xx_it.h`:
-- DMA completion IRQ handler(s)
-- ADC-related IRQ handler(s), if used
-- any timer IRQ handler kept in the final design
+- correct misleading comments around PF8 in `gyro_disable()`
+- keep PF6 as the documented ECG input
+- add missing standard integer includes in headers that expose fixed-width types
+- rename public APIs away from old demo semantics where practical
+- keep `stm32f4xx_it.h` minimal for now, but later add the project-used peripheral
+  IRQ declarations once the final interrupt set is settled
+
+### Step 10 — HAL configuration only where actually needed
+
+Do **not** treat HAL module enabling as an automatic first step.
+
+The current acquisition path is register-based, not HAL-ADC/TIM/UART based.
+Therefore:
+
+- enable HAL modules only when newly added code actually depends on them
+- ADC/TIM/UART can remain disabled in `stm32f4xx_hal_conf.h` until a concrete need
+  appears
+- DMA / GPIO / RCC / LTDC support already used by the template should remain as-is
 
 ### Step 11 — Later extensions
 
 Only after the above works:
+
 - add continuous mode
-- add ECG reference path
+- add ECG reference path on PF6
 - add OpenLog result logging
 
 ---
 
 ## 12. Main technical risks and containment
 
-| Risk | Containment |
-|---|---|
-| PC1 board conflict | Keep `gyro_disable()` exactly as a board-specific startup step before analog use of PC1. The current code already relies on that. |
-| Touchscreen interrupt mode | Use polling first. The current menu code explicitly notes timing issues with touchscreen interrupts. |
-| Wrong FFT buffer sizing | Do not allocate only `FFT_SIZE` floats for the complex FFT input buffer. Use `2 * FFT_SIZE` floats. Getting this wrong causes a hard fault. |
-| Wrong FFT input data | Do not run FFT on raw DC-biased ADC counts. Offset subtraction in `hr.*` is mandatory. |
-| Wrong I/Q assignment | PC1 is I, PC3 is Q. ADC1 maps to I, ADC2 maps to Q. If this mapping ever changes, the unpacking and complex-buffer fill order must be adjusted accordingly. |
-| Wrong unpack masking | Apply the `0x0FFF` mask when unpacking both channels. See §8.2. |
-| Misleading demo constants | Do not treat the current demo sampling constants as final HR settings. The existing code is explicitly demo-oriented. |
-| Wrong public API naming | Do not keep demo-style function names tied to old ADC examples. Public interfaces should reflect real project roles. |
-| Stuck PROCESSING state | Implement a processing timeout as described in §9.2 to ensure the device can always recover to `ERROR` and then `IDLE`. |
+| Risk                       | Containment                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PC1 board conflict         | Keep `gyro_disable()` exactly as a board-specific startup step before analog use of PC1. Note that current code also relies on it to free PC1 for analog use. |
+| Misleading legacy comments | Correct comments and function names so they describe the real radar roles rather than the old demo names.                                                     |
+| Wrong I/Q assignment       | PC1 is always I and PC3 is always Q. ADC-number mapping is secondary and must be documented explicitly.                                                       |
+| Wrong unpack mapping       | The unpacking code must follow the chosen ADC-to-channel mapping exactly.                                                                                     |
+| Wrong unpack masking       | Apply the `0x0FFF` mask when unpacking both channels.                                                                                                         |
+| Sample-time mismatch       | Recheck sample-time register fields against the actually selected ADC channels during refactoring.                                                            |
+| Touchscreen interrupt mode | Use polling first. The current code already indicates interrupt timing issues.                                                                                |
+| Wrong FFT buffer sizing    | Do not allocate only `FFT_SIZE` floats for the complex FFT input buffer. Use `2 * FFT_SIZE` floats.                                                           |
+| Wrong FFT input data       | Do not run FFT on raw DC-biased ADC counts. Offset subtraction in `hr.*` is mandatory.                                                                        |
+| Demo-only loop behavior    | Remove fixed-delay and demo-toggle behavior from the product runtime loop.                                                                                    |
+| Stuck PROCESSING state     | Implement a processing timeout so the device can recover to `ERROR` and then `IDLE`.                                                                          |
 
 ---
 
 ## 13. Best current recommendation
 
 The best next implementation direction is:
+
 - keep the current CubeIDE structure
 - preserve `main`, `menu`, `pushbutton`, and `measuring`
 - refactor them from demo semantics to product semantics
@@ -691,6 +771,8 @@ The best next implementation direction is:
 - introduce shared `MEAS_RadarFrame_t` and `HR_Result_t`
 - implement radar-only single-shot end to end
 - postpone ECG and OpenLog until after the first stable radar result appears on the LCD
+- keep the document anchored to physical I/Q pins first, and to ADC numbers only as
+  a documented implementation detail
 
-That gives the best balance between minimal disruption, clear module ownership,
-professor reviewability, and fast progress toward a live demo.
+That gives the best balance between minimal disruption, honest alignment with the
+present code base, clear module ownership, and fast progress toward a live demo.
