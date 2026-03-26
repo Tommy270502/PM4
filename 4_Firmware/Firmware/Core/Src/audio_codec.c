@@ -82,25 +82,6 @@ void codec_update_output_buffer(uint8_t channel, float32_t *data, uint32_t size)
     (void)size;
 }
 
-void codec_mirror_left_channel(void)
-{
-    if ((left_channel_buffer_pointer == 0) || (right_channel_buffer_pointer == 0))
-    {
-        return;
-    }
-
-    for (uint32_t i = 0; i < AUDIO_CHANNEL_SIZE; i++)
-    {
-        right_channel_buffer_pointer[i] = left_channel_buffer_pointer[i];
-    }
-}
-
-uint8_t codec_is_right_channel_present(void)
-{
-    /* Radar front-end provides both I and Q channels by design. */
-    return 1;
-}
-
 static void timer2_init_100hz(void)
 {
     __HAL_RCC_TIM2_CLK_ENABLE();
