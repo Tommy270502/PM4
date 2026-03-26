@@ -18,7 +18,7 @@ static float32_t *right_channel_buffer_pointer = 0;
 
 static uint8_t audio_codec_data_ready = 0;
 
-static void timer2_init_100hz(void);
+static void timer2_init_sample_rate(void);
 static void adc_dual_dma_init(void);
 static void unpack_iq_samples(uint32_t *packed_buffer);
 
@@ -47,7 +47,7 @@ HAL_StatusTypeDef codec_init(float32_t *left_channel_buffer,
     gpio_init.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &gpio_init);
 
-    timer2_init_100hz();
+    timer2_init_sample_rate();
     adc_dual_dma_init();
 
     return HAL_OK;
@@ -75,14 +75,23 @@ void codec_clear_data_ready(void)
     audio_codec_data_ready = 0;
 }
 
-static void timer2_init_100hz(void)
+static void timer2_init_sample_rate(void)
 {
+    uint32_t ticks_per_sample;
+
     __HAL_RCC_TIM2_CLK_ENABLE();
 
     TIM2->CR1 = 0;
     TIM2->CR2 = 0;
-    TIM2->PSC = 8399U;   /* 84 MHz / (8399 + 1) = 10 kHz */
-    TIM2->ARR = 99U;     /* 10 kHz / (99 + 1) = 100 Hz */
+    TIM2->PSC = 83U;     /* 84 MHz / (83 + 1) = 1 MHz timer tick */
+
+    ticks_per_sample = (1000000U + (CODEC_SAMPLE_RATE_HZ / 2U)) / CODEC_SAMPLE_RATE_HZ;
+    if (ticks_per_sample == 0U)
+    {
+        ticks_per_sample = 1U;
+    }
+    TIM2->ARR = ticks_per_sample - 1U;
+
     TIM2->CNT = 0;
 
     /* TRGO on update event. */

@@ -41,8 +41,8 @@
 // Display refresh loop limits for each menu (to prevent flicker)
 #define DISP_LOOP_M0 	10	// Info screen
 #define DISP_LOOP_M1 	4	// Light bars
-#define DISP_LOOP_M2 	10  // Time signal
-#define DISP_LOOP_M3 	4	// Spectrum analyzer
+#define DISP_LOOP_M2 	0   // Time signal (refresh on every new I/Q block)
+#define DISP_LOOP_M3 	0	// Spectrum analyzer (refresh on every new I/Q block)
 #define DISP_LOOP_M4 	4	// Effect Menu (Filter Selection)
 #define DISP_LOOP_M5 	4	// Audio level
 #define DISP_LOOP_M6 	4	// ...
@@ -150,7 +150,7 @@ int main(void) {
 	 *   In CODEC mode (CS4271) this is typically 48 kHz.
 	 * - Q controls resonance / bandwidth. Q=0.707 is a good general default.
 	 * -------------------------------------------------------------------- */
-	const float32_t fs = 100.0f;           /* radar sampling rate */
+	const float32_t fs = (float32_t)CODEC_SAMPLE_RATE_HZ; /* radar sampling rate */
 	const float32_t f0 = 2.0f;             /* low-frequency heartbeat range */
 	const float32_t Q  = 0.707f;            /* Butterworth-ish */
 	

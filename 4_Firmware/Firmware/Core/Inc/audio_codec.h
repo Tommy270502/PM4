@@ -33,6 +33,8 @@
 #define AUDIO_FRAME_SIZE 2048
 #define AUDIO_CHANNEL_SIZE  (AUDIO_FRAME_SIZE/2) //AUDIO_FRAME_SIZE / 2 = number of samples per left or right channels
 
+#define CODEC_SAMPLE_RATE_HZ 1000U
+
 #define CODEC_ADC_RES 12
 #define CODEC_ADC_REF_VOLTAGE 3.3f
 
