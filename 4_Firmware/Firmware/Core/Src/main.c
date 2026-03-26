@@ -56,9 +56,9 @@
 // Define time_signal_points based on RADAR_CHANNEL_SAMPLES, ensuring it's capped at MAX_TIME_SIGNAL_POINTS
 #define TIME_SIGNAL_POINTS (RADAR_CHANNEL_SAMPLES > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : RADAR_CHANNEL_SAMPLES)
 
-#define TIME_SIGNAL_MIN_SPAN     8.0f
+#define TIME_SIGNAL_MIN_SPAN     4.0f
 #define TIME_SIGNAL_HEADROOM     0.10f
-#define SPECTRUM_DISPLAY_HZ      10.0f
+#define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_MIN_DISPLAY_MAX 0.001f
 #define SPECTRUM_HEADROOM        1.15f
 
@@ -67,12 +67,15 @@
  * Variables
  *****************************************************************************/
 
-static float32_t radar_i_acquired[RADAR_CHANNEL_SAMPLES];
-static float32_t radar_q_acquired[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_i_acquired[RADAR_FRAME_ADVANCE_SAMPLES];
+static float32_t radar_q_acquired[RADAR_FRAME_ADVANCE_SAMPLES];
 
+static float32_t radar_i_history[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_q_history[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_i_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_q_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t spectrum_shifted[RADAR_CHANNEL_SAMPLES];
+static uint32_t radar_window_fill_samples = 0U;
 
 static uint32_t disp_loop_count[MENU_TOTAL_ENTRIES] = {0}; // Loop counters for refreshing display menus
 static bool disp_refresh;			///< Display should be refreshed
@@ -101,8 +104,10 @@ static uint32_t ekg_last_peak_tick = 0;
 static void SystemClock_Config(void);	///< System Clock Configuration
 static void gyro_disable(void);			///< Disable the onboard gyroscope
 static void error_handling(HAL_StatusTypeDef error);
-static void radar_copy_latest_frame(void);
-static void radar_get_time_scale(uint32_t count, float32_t *min_value,
+static bool radar_append_latest_chunk(void);
+static void radar_prepare_processing_window(void);
+static uint32_t radar_get_recent_start_index(uint32_t count);
+static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t *min_value,
 		float32_t *max_value);
 static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 		float32_t *max_value);
@@ -144,7 +149,7 @@ int main(void) {
 
 	gyro_disable();					// Disable gyro, use those analog inputs
 
-	ret_val = radar_init(radar_i_acquired, radar_q_acquired, RADAR_CHANNEL_SAMPLES);
+	ret_val = radar_init(radar_i_acquired, radar_q_acquired, RADAR_FRAME_ADVANCE_SAMPLES);
 	error_handling(ret_val);
 
 	radar_start();
@@ -211,13 +216,15 @@ int main(void) {
 		if (PB_pressed()) {				// Check if user pushbutton was pressed
 			// Cycle through filter types
 			current_filter_index = (current_filter_index + 1) % 5;
-			
-			// Reset filter state to avoid artifacts from previous filter
-			biquad_reset(&fxL[current_filter_index]);
-			biquad_reset(&fxR[current_filter_index]);
-			
+
 			// Update effect active flag (false only for BYPASS)
 			efect_active = (current_filter_index != FILTER_BYPASS);
+
+			if (radar_window_fill_samples >= RADAR_CHANNEL_SAMPLES) {
+				radar_prepare_processing_window();
+				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
+				error_handling(ret_val);
+			}
 
 			// Show current filter on LCD
 			disp_refresh = true;
@@ -235,31 +242,24 @@ int main(void) {
 		}
 
 		if (radar_frame_ready()) {
+			bool window_ready;
 			uint32_t primask = __get_PRIMASK();
 			__disable_irq();
 			radar_clear_frame_ready();
-			radar_copy_latest_frame();
+			window_ready = radar_append_latest_chunk();
 			if (primask == 0U) {
 				__enable_irq();
 			}
-			//BSP_LED_On(LED4);
 
-			if (efect_active) {
-				/*
-				 * Apply the currently selected biquad filter to each channel in-place.
-				 * BYPASS mode skips processing entirely via efect_active flag.
-				 */
-				biquad_process_buffer(&fxL[current_filter_index], radar_i_samples, RADAR_CHANNEL_SAMPLES);
-				biquad_process_buffer(&fxR[current_filter_index], radar_q_samples, RADAR_CHANNEL_SAMPLES);
+			if (window_ready) {
+				radar_prepare_processing_window();
+
+				// Use the rolling 50%-overlapped I/Q window for calculations.
+				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
+				error_handling(ret_val);
+
+				disp_refresh = true;      // Tell the display about the new data
 			}
-
-
-			// Use radar I/Q buffers for calculations.
-			ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
-			error_handling(ret_val);
-			
-
-			disp_refresh = true;      // Tell the display about the new data
 		}
 
 		if (disp_refresh) {
@@ -277,16 +277,18 @@ int main(void) {
 				break;
 			case MENU_ONE:	// Time signal
 				if (disp_loop_count[MENU_ONE]++ >= DISP_LOOP_M1) {
+					uint32_t signal_start;
 					float32_t signal_min;
 					float32_t signal_max;
 					disp_loop_count[MENU_ONE] = 0;
-					radar_get_time_scale(TIME_SIGNAL_POINTS, &signal_min, &signal_max);
+					signal_start = radar_get_recent_start_index(TIME_SIGNAL_POINTS);
+					radar_get_time_scale(signal_start, TIME_SIGNAL_POINTS, &signal_min, &signal_max);
 					disp_clear_data();
-					disp_curves(radar_i_samples, TIME_SIGNAL_POINTS,
+					disp_curves(&radar_i_samples[signal_start], TIME_SIGNAL_POINTS,
 							signal_min,
 							signal_max,
 							LCD_COLOR_RED);
-					disp_curves(radar_q_samples, TIME_SIGNAL_POINTS,
+					disp_curves(&radar_q_samples[signal_start], TIME_SIGNAL_POINTS,
 							signal_min,
 							signal_max,
 							LCD_COLOR_BLUE);
@@ -307,9 +309,9 @@ int main(void) {
 					BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
 					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 					BSP_LCD_SetFont(&Font12);
-					BSP_LCD_DisplayStringAt(2, 2, (uint8_t*) "-10 Hz", LEFT_MODE);
+					BSP_LCD_DisplayStringAt(2, 2, (uint8_t*) "-4 Hz", LEFT_MODE);
 					BSP_LCD_DisplayStringAt(0, 2, (uint8_t*) "0 Hz", CENTER_MODE);
-					BSP_LCD_DisplayStringAt(DISP_WIDTH - 48U, 2, (uint8_t*) "+10 Hz",
+					BSP_LCD_DisplayStringAt(DISP_WIDTH - 36U, 2, (uint8_t*) "+4 Hz",
 							LEFT_MODE);
 				}
 				break;
@@ -406,14 +408,56 @@ int main(void) {
 	}
 }
 
-static void radar_copy_latest_frame(void) {
+static bool radar_append_latest_chunk(void) {
+	uint32_t history_keep = RADAR_CHANNEL_SAMPLES - RADAR_FRAME_ADVANCE_SAMPLES;
+
+	for (uint32_t i = 0; i < history_keep; i++) {
+		radar_i_history[i] = radar_i_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
+		radar_q_history[i] = radar_q_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
+	}
+
+	for (uint32_t i = 0; i < RADAR_FRAME_ADVANCE_SAMPLES; i++) {
+		radar_i_history[history_keep + i] = radar_i_acquired[i];
+		radar_q_history[history_keep + i] = radar_q_acquired[i];
+	}
+
+	if (radar_window_fill_samples < RADAR_CHANNEL_SAMPLES) {
+		radar_window_fill_samples += RADAR_FRAME_ADVANCE_SAMPLES;
+		if (radar_window_fill_samples > RADAR_CHANNEL_SAMPLES) {
+			radar_window_fill_samples = RADAR_CHANNEL_SAMPLES;
+		}
+	}
+
+	return (radar_window_fill_samples >= RADAR_CHANNEL_SAMPLES);
+}
+
+static void radar_prepare_processing_window(void) {
 	for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++) {
-		radar_i_samples[i] = radar_i_acquired[i];
-		radar_q_samples[i] = radar_q_acquired[i];
+		radar_i_samples[i] = radar_i_history[i];
+		radar_q_samples[i] = radar_q_history[i];
+	}
+
+	if (efect_active) {
+		biquad_df2t_t filter_l = fxL[current_filter_index];
+		biquad_df2t_t filter_r = fxR[current_filter_index];
+
+		biquad_reset(&filter_l);
+		biquad_reset(&filter_r);
+
+		biquad_process_buffer(&filter_l, radar_i_samples, RADAR_CHANNEL_SAMPLES);
+		biquad_process_buffer(&filter_r, radar_q_samples, RADAR_CHANNEL_SAMPLES);
 	}
 }
 
-static void radar_get_time_scale(uint32_t count, float32_t *min_value,
+static uint32_t radar_get_recent_start_index(uint32_t count) {
+	if (count >= RADAR_CHANNEL_SAMPLES) {
+		return 0U;
+	}
+
+	return RADAR_CHANNEL_SAMPLES - count;
+}
+
+static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t *min_value,
 		float32_t *max_value) {
 	float32_t min_sample;
 	float32_t max_sample;
@@ -425,14 +469,18 @@ static void radar_get_time_scale(uint32_t count, float32_t *min_value,
 		return;
 	}
 
-	if (count > RADAR_CHANNEL_SAMPLES) {
-		count = RADAR_CHANNEL_SAMPLES;
+	if (start_index >= RADAR_CHANNEL_SAMPLES) {
+		return;
 	}
 
-	min_sample = radar_i_samples[0];
-	max_sample = radar_i_samples[0];
+	if (count > (RADAR_CHANNEL_SAMPLES - start_index)) {
+		count = RADAR_CHANNEL_SAMPLES - start_index;
+	}
 
-	for (uint32_t i = 0; i < count; i++) {
+	min_sample = radar_i_samples[start_index];
+	max_sample = radar_i_samples[start_index];
+
+	for (uint32_t i = start_index; i < (start_index + count); i++) {
 		if (radar_i_samples[i] < min_sample) {
 			min_sample = radar_i_samples[i];
 		}
@@ -472,7 +520,10 @@ static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 	}
 
 	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
-	half_bins = (uint32_t) ((SPECTRUM_DISPLAY_HZ / bin_hz) + 0.5f);
+	half_bins = (uint32_t) (SPECTRUM_DISPLAY_HZ / bin_hz);
+	if (((float32_t) half_bins * bin_hz) < SPECTRUM_DISPLAY_HZ) {
+		half_bins++;
+	}
 	if (half_bins >= (RADAR_CHANNEL_SAMPLES / 2U)) {
 		half_bins = (RADAR_CHANNEL_SAMPLES / 2U) - 1U;
 	}

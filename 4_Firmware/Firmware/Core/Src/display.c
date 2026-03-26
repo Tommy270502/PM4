@@ -82,6 +82,14 @@ void disp_curves(float32_t data[], uint32_t count, float32_t min, float32_t max,
     int32_t value0, value1;
     uint32_t d_width = DISP_WIDTH;
     uint32_t d_height = DISP_HEIGHT;
+    uint32_t position_divisor;
+
+    if ((data == 0) || (count == 0U) || (max <= min))
+    {
+        return;
+    }
+
+    position_divisor = (count > 1U) ? (count - 1U) : 1U;
     // First datapoint
     pos0 = 0;
     value0 = (uint32_t) ((data[0] - min) / (max - min) * (d_height - 1));
@@ -98,7 +106,7 @@ void disp_curves(float32_t data[], uint32_t count, float32_t min, float32_t max,
     BSP_LCD_SetTextColor(color);
     for (uint32_t i = 1; i < count; i++)
     {
-        pos1 = (d_width - 1) * i / count;
+        pos1 = (d_width - 1) * i / position_divisor;
         value1 = (int32_t) ((data[i] - min) / (max - min) * (d_height - 1));
         if (value1 < 0)
         {
@@ -254,6 +262,6 @@ void disp_info(void)
     BSP_LCD_DisplayStringAt(5, 130, (uint8_t*) "Thomas Perri", LEFT_MODE);
 
     BSP_LCD_DisplayStringAt(5, 160, (uint8_t*) "--------------------", LEFT_MODE);
-    BSP_LCD_DisplayStringAt(5, 200, (uint8_t*) "Version 19.12.2025", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(5, 200, (uint8_t*) "Version 26.03.2026", LEFT_MODE);
 }
 

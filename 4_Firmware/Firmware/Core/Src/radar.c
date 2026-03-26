@@ -10,8 +10,8 @@
 #include "stm32f4xx.h"
 #include "stm32f429i_discovery.h"
 
-static uint32_t radar_iq_buffer_ping[RADAR_CHANNEL_SAMPLES];
-static uint32_t radar_iq_buffer_pong[RADAR_CHANNEL_SAMPLES];
+static uint32_t radar_iq_buffer_ping[RADAR_FRAME_ADVANCE_SAMPLES];
+static uint32_t radar_iq_buffer_pong[RADAR_FRAME_ADVANCE_SAMPLES];
 
 static float32_t *radar_i_buffer_pointer = 0;
 static float32_t *radar_q_buffer_pointer = 0;
@@ -31,7 +31,7 @@ HAL_StatusTypeDef radar_init(float32_t *i_channel_buffer,
 {
     GPIO_InitTypeDef gpio_init = {0};
 
-    if ((i_channel_buffer == 0) || (q_channel_buffer == 0) || (size < RADAR_CHANNEL_SAMPLES))
+    if ((i_channel_buffer == 0) || (q_channel_buffer == 0) || (size < RADAR_FRAME_ADVANCE_SAMPLES))
     {
         return HAL_ERROR;
     }
@@ -157,7 +157,7 @@ static void adc_dual_dma_init(void)
     DMA2_Stream0->CR |= DMA_SxCR_DBM;
     DMA2_Stream0->CR |= DMA_SxCR_TCIE;
 
-    DMA2_Stream0->NDTR = RADAR_CHANNEL_SAMPLES;
+    DMA2_Stream0->NDTR = RADAR_FRAME_ADVANCE_SAMPLES;
     DMA2_Stream0->PAR = (uint32_t)&(ADC->CDR);
     DMA2_Stream0->M0AR = (uint32_t)radar_iq_buffer_ping;
     DMA2_Stream0->M1AR = (uint32_t)radar_iq_buffer_pong;
@@ -176,7 +176,7 @@ static void unpack_iq_samples(uint32_t *packed_buffer)
         return;
     }
 
-    for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++)
+    for (uint32_t i = 0; i < RADAR_FRAME_ADVANCE_SAMPLES; i++)
     {
         uint32_t pair = packed_buffer[i];
 
