@@ -7,30 +7,16 @@
  *
  * DUAL-MODE AUDIO INPUT ARCHITECTURE:
  * ------------------------------------
- * This driver supports two mutually exclusive audio input modes, selected at compile-time:
- *
- * 1. CODEC MODE (default - AUDIO_INPUT_I2S undefined):
- *    - Audio input from external codec via SAI1 Block A (PE3/PE4/PE5)
- *    - Codec provides I2S clock (slave mode)
- *    - Supports mono/stereo detection via ADC on PF8
- *    - DMA2 Stream1 handles reception
- *
- * 2. I2S INPUT MODE (AUDIO_INPUT_I2S defined):
- *    - Audio input from external I2S device via SPI2/I2S2 (PB12-15)
- *    - External device provides I2S clock (slave mode)
- *    - Assumes stereo input (no mono detection)
- *    - DMA1 Stream3 handles reception
- *
- * BOTH MODES:
+ * This driver supports audio codec input modes with the following features:
+ * - Audio input from external codec via SAI1 Block A (PE3/PE4/PE5)
+ * - Codec provides I2S clock (slave mode)
+ * - Supports mono/stereo detection via ADC on PF8
+ * - DMA2 Stream1 handles reception
  * - Output to codec via SAI1 Block B (PE6) and DMA2 Stream5
- * - Use same ping-pong buffer architecture
+ * - Use ping-pong buffer architecture
  * - Process audio as float32_t arrays
  * - Support 24-bit audio in 32-bit I2S frames
- *
- * To enable I2S input mode, uncomment the define below:
  */
-
-//#define AUDIO_INPUT_I2S  // Uncomment to enable external I2S input via PB12-15
 
 #ifndef AUDIO_CODEC_H_
 #define AUDIO_CODEC_H_

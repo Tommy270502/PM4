@@ -217,13 +217,11 @@ int main(void) {
 			codec_clear_data_ready();
 			//BSP_LED_On(LED4);
 
-#ifndef AUDIO_INPUT_I2S
 			// Check if right channel is present (codec mode only)
 			if (!codec_is_right_channel_present()) {
 				// Only left channel detected - mirror it to right for mono output
 				codec_mirror_left_channel();
 			}
-#endif
 
 			if (efect_active) {
 				/*
