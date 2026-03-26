@@ -134,8 +134,6 @@ int main(void) {
 	ret_val = codec_init(left_channel_samples, right_channel_samples, AUDIO_CHANNEL_SIZE);	// Audio Codec init
 	error_handling(ret_val);
 
-	codec_reset();
-
 	codec_start();
 
 	/* --------------------------------------------------------------------
@@ -147,8 +145,8 @@ int main(void) {
 	 *   In CODEC mode (CS4271) this is typically 48 kHz.
 	 * - Q controls resonance / bandwidth. Q=0.707 is a good general default.
 	 * -------------------------------------------------------------------- */
-	const float32_t fs = 48000.0f;          /* adjust if your stream is different */
-	const float32_t f0 = 500.0f;           /* cutoff/center frequency [Hz] */
+	const float32_t fs = 100.0f;           /* radar sampling rate */
+	const float32_t f0 = 2.0f;             /* low-frequency heartbeat range */
 	const float32_t Q  = 0.707f;            /* Butterworth-ish */
 	
 	// Initialize all filter types

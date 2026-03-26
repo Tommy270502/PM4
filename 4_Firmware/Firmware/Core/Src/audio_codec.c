@@ -1,218 +1,68 @@
 /**
  * @file    audio_codec.c
- * @brief   API for audio codec initialization, SAI/DMA handling, and audio buffer management.
- * @author  Patrick Rennhard (renn@zhaw.ch)
- * @date    2025-09-03
+ * @brief   Compatibility acquisition API now backed by radar ADC I/Q capture.
+ *
+ * Public API names are intentionally kept so the existing main loop can be
+ * migrated in small steps.
  */
 
-/******************************************************************************
- * Includes
- *****************************************************************************/
 #include "audio_codec.h"
-#include "calc.h"
-
-#include <stdio.h>
-
-#include "stm32f4xx.h"
 
 #include "stm32f429i_discovery.h"
-#include "stm32f429i_discovery_lcd.h"
-#include "stm32f429i_discovery_ts.h"
-#include "stm32f4xx_hal_uart.h"
-#include "stm32f4xx_hal_i2c.h"
 
-/******************************************************************************
- * Defines
- *****************************************************************************/
-
-/******************************************************************************
- * Variables
- *****************************************************************************/
-
-static int32_t audio_in_buffer_ping[AUDIO_FRAME_SIZE];
-static int32_t audio_in_buffer_pong[AUDIO_FRAME_SIZE];
-
-static int32_t audio_out_buffer_ping[AUDIO_FRAME_SIZE];
-static int32_t audio_out_buffer_pong[AUDIO_FRAME_SIZE];
-static int32_t *next_audio_out_buffer_pointer = audio_out_buffer_ping;
+static uint32_t radar_iq_buffer_ping[AUDIO_CHANNEL_SIZE];
+static uint32_t radar_iq_buffer_pong[AUDIO_CHANNEL_SIZE];
 
 static float32_t *left_channel_buffer_pointer = 0;
 static float32_t *right_channel_buffer_pointer = 0;
 
 static uint8_t audio_codec_data_ready = 0;
 
-static int32_t *last_completed_rx_buffer = NULL;
+static void timer2_init_100hz(void);
+static void adc_dual_dma_init(void);
+static void unpack_iq_samples(uint32_t *packed_buffer);
 
-/******************************************************************************
- * Functions
- *****************************************************************************/
-
-/**
- * @brief Initializes the SAI interface DMA for audio streaming.
- */
-static void sai_dma_init(void);
-
-/**
- * @brief Split and convert interleaved I2S data into float buffers.
- */
-static void split_and_cast_i2s_buffer(int32_t *i2s_buffer, float32_t *left_out,
-                                      float32_t *right_out, uint32_t out_buffer_size);
-
+void DMA2_Stream0_IRQHandler(void);
 void DMA2_Stream1_IRQHandler(void);
 void DMA2_Stream5_IRQHandler(void);
-
-void codec_reset(void)
-{
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-    HAL_Delay(1000);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
-}
 
 HAL_StatusTypeDef codec_init(float32_t *left_channel_buffer,
                              float32_t *right_channel_buffer, uint32_t size)
 {
-    HAL_StatusTypeDef ret_val;
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitTypeDef GPIO_InitStructSAI = {0};
+    GPIO_InitTypeDef gpio_init = {0};
 
-    if (size >= AUDIO_FRAME_SIZE / 2)
+    if ((left_channel_buffer == 0) || (right_channel_buffer == 0) || (size < AUDIO_CHANNEL_SIZE))
     {
-        left_channel_buffer_pointer = left_channel_buffer;
-        right_channel_buffer_pointer = right_channel_buffer;
-
-        __HAL_RCC_GPIOA_CLK_ENABLE();
-        __HAL_RCC_GPIOB_CLK_ENABLE();
-        __HAL_RCC_GPIOC_CLK_ENABLE();
-        __HAL_RCC_GPIOE_CLK_ENABLE();
-
-        /* ============================================================
-         * CONTROL GPIOs
-         *  - PB4: codec reset (used by codec_reset())
-         * ============================================================ */
-
-        // --- GPIOB: PB4 as Output, initial Low (hold codec in reset) ---
-        GPIO_InitStruct.Pin = GPIO_PIN_4;
-        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-
-        /* ============================================================
-         * SAI1 PINS (PE2..PE6) FOR CODEC
-         *
-         *  PE2 : SAI1_MCLK_A → CS4271 MCLK
-         *  PE3 : SAI1_SD_B   → Codec SDIN  (STM -> codec)
-         *  PE4 : SAI1_FS_A   → Codec LRCK
-         *  PE5 : SAI1_SCK_A  → Codec SCLK/BCLK
-         *  PE6 : SAI1_SD_A   → Codec SDOUT (codec -> STM)
-         *
-         * All must be AF6 for SAI1.
-         * ============================================================ */
-
-        GPIO_InitStructSAI.Pin = GPIO_PIN_3 | GPIO_PIN_4 |
-                                 GPIO_PIN_5 | GPIO_PIN_6;
-
-        GPIO_InitStructSAI.Mode = GPIO_MODE_AF_PP;
-        GPIO_InitStructSAI.Pull = GPIO_NOPULL;
-        GPIO_InitStructSAI.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStructSAI.Alternate = GPIO_AF6_SAI1;
-        HAL_GPIO_Init(GPIOE, &GPIO_InitStructSAI);
-
-        ret_val = HAL_OK;
+        return HAL_ERROR;
     }
-    else
-    {
-        ret_val = HAL_ERROR;
-    }
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
-    return ret_val;
+
+    left_channel_buffer_pointer = left_channel_buffer;
+    right_channel_buffer_pointer = right_channel_buffer;
+
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+
+    /* PC1 = ADC123_IN11 (I), PC3 = ADC123_IN13 (Q). */
+    gpio_init.Pin = GPIO_PIN_1 | GPIO_PIN_3;
+    gpio_init.Mode = GPIO_MODE_ANALOG;
+    gpio_init.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOC, &gpio_init);
+
+    timer2_init_100hz();
+    adc_dual_dma_init();
+
+    return HAL_OK;
 }
 
 void codec_start(void)
 {
-    /* --- COMMON: enable SAI1 peripheral clock --- */
-    RCC->APB2ENR |= RCC_APB2ENR_SAI1EN;
+    /* Enable ADC2 first, then ADC1 (master in multimode). */
+    ADC2->CR2 |= ADC_CR2_ADON;
+    ADC1->CR2 |= ADC_CR2_ADON;
 
-    /* ============================================================
-     * SAI1 BLOCK A
-     * ------------------------------------------------------------
-     * Always configure Block A as a slave receiver so that:
-     *  - FS_A / SCK_A (PE4 / PE5) are used as the frame/bit clock,
-     *  - Block B can be synchronous to Block A and share these clocks.
-     * ============================================================ */
-    SAI1_Block_A->CR1 &= ~SAI_xCR1_SAIEN; // Disable before config
-
-    /* --- CR1 (Block A: slave receiver) --- */
-    SAI1_Block_A->CR1 =
-        (3U << SAI_xCR1_MODE_Pos)                                                                                                // 3: Slave receiver
-        | (7U << SAI_xCR1_DS_Pos)                                                                                                // 32-bit data
-        | (0U << SAI_xCR1_PRTCFG_Pos) | (0U << SAI_xCR1_LSBFIRST_Pos) | (1U << SAI_xCR1_CKSTR_Pos) | (0U << SAI_xCR1_SYNCEN_Pos) // Asynchronous, but uses FS_A/SCK_A pins
-        | (0U << SAI_xCR1_OUTDRIV_Pos) | (0U << SAI_xCR1_MONO_Pos) | (0U << SAI_xCR1_DMAEN_Pos)                                  // DMA enabled later only in CODEC mode
-        | (0U << SAI_xCR1_NODIV_Pos) | (0U << SAI_xCR1_MCKDIV_Pos);
-
-    /* --- CR2 --- */
-    SAI1_Block_A->CR2 =
-        (1U << SAI_xCR2_FTH_Pos) // FIFO threshold = 1/4
-        | (0U << SAI_xCR2_TRIS_Pos) | (0U << SAI_xCR2_COMP_Pos);
-
-    /* --- FRCR --- */
-    SAI1_Block_A->FRCR =
-        (63U << SAI_xFRCR_FRL_Pos)     // Frame length = 64 bits
-        | (31U << SAI_xFRCR_FSALL_Pos) // Active frame = 32 bits
-        | (0U << SAI_xFRCR_FSDEF_Pos) | (0U << SAI_xFRCR_FSPOL_Pos) | (1U << SAI_xFRCR_FSOFF_Pos);
-
-    /* --- SLOTR --- */
-    SAI1_Block_A->SLOTR =
-        (0x3 << SAI_xSLOTR_SLOTEN_Pos)  // 2 slots (stereo)
-        | (1U << SAI_xSLOTR_NBSLOT_Pos) // NBSLOT = 1 → 2 slots
-        | (2U << SAI_xSLOTR_SLOTSZ_Pos) // 32-bit slots
-        | (0U << SAI_xSLOTR_FBOFF_Pos);
-
-    /* ============================================================
-     * SAI1 BLOCK B
-     * ------------------------------------------------------------
-     * Slave transmitter, **synchronous to Block A** so it uses
-     * the same FS_A/SCK_A (PE4/PE5) clocks from the CS4271 (master).
-     * ============================================================ */
-    SAI1_Block_B->CR1 &= ~SAI_xCR1_SAIEN; // Disable before config
-
-    /* --- CR1 (Block B: slave transmitter, synchronous to A) --- */
-    SAI1_Block_B->CR1 =
-        (2U << SAI_xCR1_MODE_Pos)                                                                                                // 2: Slave transmitter
-        | (7U << SAI_xCR1_DS_Pos)                                                                                                // 32-bit data
-        | (0U << SAI_xCR1_PRTCFG_Pos) | (0U << SAI_xCR1_LSBFIRST_Pos) | (1U << SAI_xCR1_CKSTR_Pos) | (1U << SAI_xCR1_SYNCEN_Pos) // <-- IMPORTANT: synchronous with Block A
-        | (1U << SAI_xCR1_OUTDRIV_Pos) | (0U << SAI_xCR1_MONO_Pos) | (0U << SAI_xCR1_DMAEN_Pos)                                  // DMA enabled later
-        | (0U << SAI_xCR1_NODIV_Pos) | (0U << SAI_xCR1_MCKDIV_Pos);
-
-    /* --- CR2 --- */
-    SAI1_Block_B->CR2 =
-        (1U << SAI_xCR2_FTH_Pos) | (0U << SAI_xCR2_TRIS_Pos) | (0U << SAI_xCR2_COMP_Pos);
-
-    /* --- FRCR --- */
-    SAI1_Block_B->FRCR =
-        (63U << SAI_xFRCR_FRL_Pos) | (31U << SAI_xFRCR_FSALL_Pos) | (0U << SAI_xFRCR_FSDEF_Pos) | (0U << SAI_xFRCR_FSPOL_Pos) | (1U << SAI_xFRCR_FSOFF_Pos);
-
-    /* --- SLOTR --- */
-    SAI1_Block_B->SLOTR =
-        (0x3 << SAI_xSLOTR_SLOTEN_Pos) | (1U << SAI_xSLOTR_NBSLOT_Pos) | (2U << SAI_xSLOTR_SLOTSZ_Pos) | (0U << SAI_xSLOTR_FBOFF_Pos);
-
-    // Configure DMA for RX (SAI/I2S2) and TX (SAI1_B)
-    sai_dma_init();
-
-    // OLD CODEC MODE: Use SAI1 Block A RX DMA
-    SAI1_Block_A->CR1 |= SAI_xCR1_DMAEN;
-
-    // Enable SAI1 Block B TX DMA (common to both modes)
-    SAI1_Block_B->CR1 |= SAI_xCR1_DMAEN;
-
-    /* ============================================================
-     * Finally enable both SAI blocks
-     *  - Block A: to lock to CS4271 clocks on FS_A/SCK_A
-     *  - Block B: to stream audio to CS4271 DAC
-     * ============================================================ */
-    SAI1_Block_A->CR1 |= SAI_xCR1_SAIEN;
-    SAI1_Block_B->CR1 |= SAI_xCR1_SAIEN;
+    /* Clear stale flags and start timer-triggered conversions. */
+    audio_codec_data_ready = 0;
+    TIM2->EGR = TIM_EGR_UG;
+    TIM2->CR1 |= TIM_CR1_CEN;
 }
 
 uint8_t codec_data_ready(void)
@@ -225,290 +75,162 @@ void codec_clear_data_ready(void)
     audio_codec_data_ready = 0;
 }
 
-void codec_mirror_left_channel(void)
+void codec_update_output_buffer(uint8_t channel, float32_t *data, uint32_t size)
 {
-    int32_t *current_out_buffer = next_audio_out_buffer_pointer;
-
-    for (uint32_t i = 0; i < AUDIO_FRAME_SIZE; i += 2)
-    {
-        current_out_buffer[i + 1] = current_out_buffer[i];
-    }
+    (void)channel;
+    (void)data;
+    (void)size;
 }
 
-/**
- * @brief Read ADC value from PF8 (ADC3_IN6) to detect right channel presence.
- */
-static uint16_t read_right_channel_adc(void)
+void codec_mirror_left_channel(void)
 {
-    static uint8_t adc_initialized = 0;
-
-    if (!adc_initialized)
+    if ((left_channel_buffer_pointer == 0) || (right_channel_buffer_pointer == 0))
     {
-        __HAL_RCC_ADC3_CLK_ENABLE();
-
-        ADC3->CR2 &= ~ADC_CR2_ADON;
-        ADC3->CR1 &= ~ADC_CR1_RES;
-        ADC3->CR2 &= ~ADC_CR2_CONT;
-
-        ADC3->SQR3 = 6;
-        ADC3->SQR1 = 0;
-
-        ADC3->SMPR2 &= ~ADC_SMPR2_SMP6_Msk;
-        ADC3->SMPR2 |= (4UL << ADC_SMPR2_SMP6_Pos);
-
-        ADC3->CR2 |= ADC_CR2_ADON;
-        adc_initialized = 1;
-
-        for (volatile int i = 0; i < 100; i++)
-            ;
+        return;
     }
 
-    ADC3->CR2 |= ADC_CR2_SWSTART;
-
-    while (!(ADC3->SR & ADC_SR_EOC))
-        ;
-
-    return (uint16_t)ADC3->DR;
+    for (uint32_t i = 0; i < AUDIO_CHANNEL_SIZE; i++)
+    {
+        right_channel_buffer_pointer[i] = left_channel_buffer_pointer[i];
+    }
 }
 
 uint8_t codec_is_right_channel_present(void)
 {
-#define ADC_THRESHOLD_LOW 100
-#define ADC_THRESHOLD_HIGH 150
-#define DETECTION_COUNT 5
-
-    static uint8_t right_channel_active = 1;
-    static uint8_t detection_counter = 0;
-
-    uint16_t adc_value = read_right_channel_adc();
-    uint16_t adc_center = 2048;
-
-    int16_t deviation = (int16_t)adc_value - (int16_t)adc_center;
-    if (deviation < 0)
-        deviation = -deviation;
-
-    uint8_t condition_met;
-
-    if (right_channel_active)
-    {
-        condition_met = (deviation < ADC_THRESHOLD_LOW);
-    }
-    else
-    {
-        condition_met = (deviation > ADC_THRESHOLD_HIGH);
-    }
-
-    if (condition_met)
-    {
-        detection_counter++;
-        if (detection_counter >= DETECTION_COUNT)
-        {
-            right_channel_active = !right_channel_active;
-            detection_counter = 0;
-        }
-    }
-    else
-    {
-        detection_counter = 0;
-    }
-
-    return right_channel_active;
+    /* Radar front-end provides both I and Q channels by design. */
+    return 1;
 }
 
-static void sai_dma_init(void)
+static void timer2_init_100hz(void)
 {
+    __HAL_RCC_TIM2_CLK_ENABLE();
 
+    TIM2->CR1 = 0;
+    TIM2->CR2 = 0;
+    TIM2->PSC = 8399U;   /* 84 MHz / (8399 + 1) = 10 kHz */
+    TIM2->ARR = 99U;     /* 10 kHz / (99 + 1) = 100 Hz */
+    TIM2->CNT = 0;
+
+    /* TRGO on update event. */
+    TIM2->CR2 |= TIM_CR2_MMS_1;
+    TIM2->EGR = TIM_EGR_UG;
+}
+
+static void adc_dual_dma_init(void)
+{
+    __HAL_RCC_ADC1_CLK_ENABLE();
+    __HAL_RCC_ADC2_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
 
-    DMA2_Stream1->CR &= ~DMA_SxCR_EN;
-    while (DMA2_Stream1->CR & DMA_SxCR_EN)
+    /* Disable ADCs before configuration. */
+    ADC1->CR2 &= ~ADC_CR2_ADON;
+    ADC2->CR2 &= ~ADC_CR2_ADON;
+
+    /* Disable DMA stream before reconfiguration. */
+    DMA2_Stream0->CR &= ~DMA_SxCR_EN;
+    while (DMA2_Stream0->CR & DMA_SxCR_EN)
     {
     }
 
-    // Clear transfer complete interrupt flag for Stream1
-    DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
+    DMA2->LIFCR = DMA_LIFCR_CFEIF0 | DMA_LIFCR_CDMEIF0 |
+                  DMA_LIFCR_CTEIF0 | DMA_LIFCR_CHTIF0 | DMA_LIFCR_CTCIF0;
 
-    // === Configure DMA2 Stream5 for SAI1 Block B TX (common) ===
-    DMA2_Stream5->CR &= ~DMA_SxCR_EN;
-    while (DMA2_Stream5->CR & DMA_SxCR_EN)
-    {
-    }
+    /* ADC common: dual regular simultaneous mode, DMA access mode 2. */
+    ADC->CCR = 0;
+    ADC->CCR |= ADC_CCR_ADCPRE_0 | ADC_CCR_ADCPRE_1; /* PCLK2/8 */
+    ADC->CCR |= ADC_CCR_MULTI_0;                     /* Regular simultaneous mode */
+    ADC->CCR |= ADC_CCR_DMA_1;                       /* DMA mode 2 */
+    ADC->CCR |= ADC_CCR_DDS;                         /* DMA requests issued continuously */
 
-    // Clear transfer complete interrupt flag for Stream5
-    DMA2->HIFCR |= DMA_HIFCR_CTCIF5;
+    /* ADC1 = I channel (PC1 / IN11). */
+    ADC1->CR1 = 0;
+    ADC1->CR2 = 0;
+    ADC1->SMPR1 &= ~ADC_SMPR1_SMP11_Msk;
+    ADC1->SMPR1 |= (5UL << ADC_SMPR1_SMP11_Pos);     /* 84 cycles sample time */
+    ADC1->SQR1 = 0;
+    ADC1->SQR3 = 11U;
+    ADC1->CR2 |= ADC_CR2_EXTEN_0;                    /* Trigger on rising edge */
+    ADC1->CR2 |= ADC_CR2_EXTSEL_1 | ADC_CR2_EXTSEL_2; /* TIM2_TRGO */
+    ADC1->CR2 |= ADC_CR2_DMA;
 
-    // --- SAI1_Block_A RX (DMA2 Stream1, Channel0) ---
-    DMA2_Stream1->CR = 0;
+    /* ADC2 = Q channel (PC3 / IN13). */
+    ADC2->CR1 = 0;
+    ADC2->CR2 = 0;
+    ADC2->SMPR1 &= ~ADC_SMPR1_SMP13_Msk;
+    ADC2->SMPR1 |= (5UL << ADC_SMPR1_SMP13_Pos);
+    ADC2->SQR1 = 0;
+    ADC2->SQR3 = 13U;
+    ADC2->CR2 |= ADC_CR2_EXTEN_0;
+    ADC2->CR2 |= ADC_CR2_EXTSEL_1 | ADC_CR2_EXTSEL_2;
 
-    DMA2_Stream1->CR |= (0UL << DMA_SxCR_CHSEL_Pos); // Channel 0
-    DMA2_Stream1->CR |= DMA_SxCR_PL_1;               // High priority
-    DMA2_Stream1->CR |= DMA_SxCR_MSIZE_1;            // Mem 32-bit
-    DMA2_Stream1->CR |= DMA_SxCR_PSIZE_1;            // Periph 32-bit
-    DMA2_Stream1->CR |= DMA_SxCR_MINC;               // Mem inc
-    DMA2_Stream1->CR |= DMA_SxCR_CIRC;               // Circular
-    DMA2_Stream1->CR |= DMA_SxCR_DBM;                // Double-buffer
-    DMA2_Stream1->CR |= DMA_SxCR_TCIE;               // TC interrupt
+    /* DMA2 Stream0 Channel0 reads packed ADC_CDR values. */
+    DMA2_Stream0->CR = 0;
+    DMA2_Stream0->CR |= (0UL << DMA_SxCR_CHSEL_Pos); /* Channel 0 */
+    DMA2_Stream0->CR |= DMA_SxCR_PL_1;               /* High priority */
+    DMA2_Stream0->CR |= DMA_SxCR_MSIZE_1;            /* Memory 32-bit */
+    DMA2_Stream0->CR |= DMA_SxCR_PSIZE_1;            /* Peripheral 32-bit */
+    DMA2_Stream0->CR |= DMA_SxCR_MINC;
+    DMA2_Stream0->CR |= DMA_SxCR_CIRC;
+    DMA2_Stream0->CR |= DMA_SxCR_DBM;
+    DMA2_Stream0->CR |= DMA_SxCR_TCIE;
 
-    DMA2_Stream1->NDTR = AUDIO_FRAME_SIZE;
-    DMA2_Stream1->PAR = (uint32_t)&(SAI1_Block_A->DR);
-    DMA2_Stream1->M0AR = (uint32_t)audio_in_buffer_ping;
-    DMA2_Stream1->M1AR = (uint32_t)audio_in_buffer_pong;
+    DMA2_Stream0->NDTR = AUDIO_CHANNEL_SIZE;
+    DMA2_Stream0->PAR = (uint32_t)&(ADC->CDR);
+    DMA2_Stream0->M0AR = (uint32_t)radar_iq_buffer_ping;
+    DMA2_Stream0->M1AR = (uint32_t)radar_iq_buffer_pong;
 
-    DMA2_Stream1->CR |= DMA_SxCR_EN;
+    DMA2_Stream0->CR |= DMA_SxCR_EN;
 
-    NVIC_SetPriority(DMA2_Stream1_IRQn, 1);
-    NVIC_ClearPendingIRQ(DMA2_Stream1_IRQn);
-    NVIC_EnableIRQ(DMA2_Stream1_IRQn);
-
-    // --- SAI1_Block_B TX (DMA2 Stream5, Channel0) ---
-    DMA2_Stream5->CR = 0;
-
-    DMA2_Stream5->CR |= (0UL << DMA_SxCR_CHSEL_Pos); // Channel 0
-    DMA2_Stream5->CR |= DMA_SxCR_PL_1;               // High priority
-    DMA2_Stream5->CR |= DMA_SxCR_MSIZE_1;            // Mem 32-bit
-    DMA2_Stream5->CR |= DMA_SxCR_PSIZE_1;            // Periph 32-bit
-    DMA2_Stream5->CR |= DMA_SxCR_MINC;               // Mem inc
-    DMA2_Stream5->CR |= DMA_SxCR_CIRC;               // Circular
-    DMA2_Stream5->CR |= DMA_SxCR_DBM;                // Double-buffer
-    DMA2_Stream5->CR |= DMA_SxCR_TCIE;               // TC interrupt
-    DMA2_Stream5->CR |= DMA_SxCR_DIR_0;              // Mem-to-periph
-
-    DMA2_Stream5->NDTR = AUDIO_FRAME_SIZE;
-    DMA2_Stream5->PAR = (uint32_t)&(SAI1_Block_B->DR);
-    DMA2_Stream5->M0AR = (uint32_t)audio_out_buffer_ping;
-    DMA2_Stream5->M1AR = (uint32_t)audio_out_buffer_pong;
-
-    DMA2_Stream5->CR |= DMA_SxCR_EN;
-
-    NVIC_SetPriority(DMA2_Stream5_IRQn, 2);
-    NVIC_ClearPendingIRQ(DMA2_Stream5_IRQn);
-    NVIC_EnableIRQ(DMA2_Stream5_IRQn); // Enable TX IRQ for debug
+    NVIC_SetPriority(DMA2_Stream0_IRQn, 1);
+    NVIC_ClearPendingIRQ(DMA2_Stream0_IRQn);
+    NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 }
 
-static void split_and_cast_i2s_buffer(int32_t *i2s_buffer, float32_t *left_out,
-                                      float32_t *right_out, uint32_t out_buffer_size)
+static void unpack_iq_samples(uint32_t *packed_buffer)
 {
-    for (uint32_t i = 0; i < out_buffer_size; i++)
+    if ((packed_buffer == 0) || (left_channel_buffer_pointer == 0) || (right_channel_buffer_pointer == 0))
     {
-        left_out[i] = (float32_t)(i2s_buffer[i * 2] >> 8);
-        right_out[i] = (float32_t)(i2s_buffer[i * 2 + 1] >> 8);
+        return;
+    }
+
+    for (uint32_t i = 0; i < AUDIO_CHANNEL_SIZE; i++)
+    {
+        uint32_t pair = packed_buffer[i];
+
+        /* CDR layout in dual regular mode: [31:16]=ADC2 (Q), [15:0]=ADC1 (I). */
+        left_channel_buffer_pointer[i] = (float32_t)(pair & 0xFFFFU);
+        right_channel_buffer_pointer[i] = (float32_t)((pair >> 16) & 0xFFFFU);
     }
 }
 
-void codec_update_output_buffer(uint8_t channel, float32_t *data, uint32_t size)
+void DMA2_Stream0_IRQHandler(void)
 {
-    if (size > AUDIO_CHANNEL_SIZE)
+    if (DMA2->LISR & DMA_LISR_TCIF0)
     {
-        size = AUDIO_CHANNEL_SIZE;
-    }
+        uint32_t *completed_buffer;
 
-    int32_t *current_out_buffer = next_audio_out_buffer_pointer;
+        DMA2->LIFCR = DMA_LIFCR_CTCIF0;
 
-    for (uint32_t i = 0; i < size; i++)
-    {
-        int32_t sample = ((int32_t)data[i]) << 8;
-
-        if (channel == 0)
+        if ((DMA2_Stream0->CR & DMA_SxCR_CT) == 0U)
         {
-            current_out_buffer[i * 2] = sample;
+            completed_buffer = radar_iq_buffer_pong;
         }
         else
         {
-            current_out_buffer[i * 2 + 1] = sample;
+            completed_buffer = radar_iq_buffer_ping;
         }
+
+        unpack_iq_samples(completed_buffer);
+        audio_codec_data_ready = 1;
+        BSP_LED_Toggle(LED4);
     }
 }
 
+/* Legacy handlers kept to preserve vector symbol compatibility. */
 void DMA2_Stream1_IRQHandler(void)
 {
-    if (DMA2->LISR & DMA_LISR_TCIF1)
-    {
-        DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
-
-        int32_t *completed;
-
-        /*
-         * Double-buffer logic:
-         *  - CT = 0 → current target is M0 → M1 (pong) just finished
-         *  - CT = 1 → current target is M1 → M0 (ping) just finished
-         * According to ST’s DBM behavior, CT has already toggled at TC.
-         */
-        if ((DMA2_Stream1->CR & DMA_SxCR_CT) == 0)
-        {
-            completed = audio_in_buffer_pong; // M1 just finished
-        }
-        else
-        {
-            completed = audio_in_buffer_ping; // M0 just finished
-        }
-
-        /* Remember which RX buffer is complete */
-        last_completed_rx_buffer = completed;
-
-        /* Update float channels for your calculations / display */
-        if (left_channel_buffer_pointer && right_channel_buffer_pointer)
-        {
-            split_and_cast_i2s_buffer(completed,
-                                      left_channel_buffer_pointer,
-                                      right_channel_buffer_pointer,
-                                      AUDIO_CHANNEL_SIZE);
-        }
-
-        /* Tell main loop that new data is available */
-        audio_codec_data_ready = 1;
-    }
 }
 
-/* SAI1 Block B TX */
 void DMA2_Stream5_IRQHandler(void)
 {
-    if (DMA2->HISR & DMA_HISR_TCIF5)
-    {
-        DMA2->HIFCR |= DMA_HIFCR_CTCIF5;
-
-        /*
-         * Double-buffer logic for TX (mem-to-periph):
-         *  - CT = 0 → DMA is now reading from M0 (ping)
-         *             → M1 (pong) has just finished and is safe to overwrite.
-         *  - CT = 1 → DMA is now reading from M1
-         *             → M0 has just finished.
-         */
-        uint32_t ct = (DMA2_Stream5->CR & DMA_SxCR_CT) ? 1U : 0U;
-        int32_t *buf_to_fill;
-
-        if (ct == 0U)
-        {
-            // Now reading M0 → M1 just finished
-            buf_to_fill = audio_out_buffer_pong;
-        }
-        else
-        {
-            // Now reading M1 → M0 just finished
-            buf_to_fill = audio_out_buffer_ping;
-        }
-
-        /* Optional: keep this for effects / mirror function */
-        next_audio_out_buffer_pointer = buf_to_fill;
-
-        /* Source for new TX frame: last completed RX buffer */
-        int32_t *src = last_completed_rx_buffer;
-
-        if (src != NULL)
-        {
-            for (uint32_t i = 0; i < AUDIO_FRAME_SIZE; i++)
-            {
-                buf_to_fill[i] = src[i];
-            }
-        }
-        else
-        {
-            // No RX data yet → output silence
-            for (uint32_t i = 0; i < AUDIO_FRAME_SIZE; i++)
-            {
-                buf_to_fill[i] = 0;
-            }
-        }
-
-        BSP_LED_Toggle(LED4); // TX running debug
-    }
 }
