@@ -9,7 +9,7 @@
 		<item key="SmartImportRootWizardPage.STORE_NESTED_PROJECTS" value="true"/>
 		<item key="SmartImportRootWizardPage.STORE_CONFIGURE_NATURES" value="true"/>
 		<list key="org.eclipse.ui.internal.wizards.datatransfer.SmartImportRootWizardPage.knownSources">
-			<item value="/home/thomas/Documents/git/PM3/3_Technical_Documents/Microcontroller/PM3_Audio_Light-FW_Template_V1/Firmware"/>
+			<item value="C:/Users/bogda/Programming/PM4/PM4/4_Firmware/Firmware"/>
 		</list>
 		<section name="SmartImportWizard.dialogBounds">
 			<item key="DIALOG_X_ORIGIN" value="470"/>
