@@ -66,8 +66,6 @@ static MENU_entry_t MENU_entry[MENU_TOTAL_ENTRIES] =
 {
 { "Info", "Screen",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTYELLOW },
-{ "Amb.", "Light",
-LCD_COLOR_BLACK, LCD_COLOR_LIGHTGREEN },
 { "Time", "Signal",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED },
 { "FFT", "Spectr",

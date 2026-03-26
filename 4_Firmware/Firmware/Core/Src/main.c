@@ -40,16 +40,15 @@
  *****************************************************************************/
 // Display refresh loop limits for each menu (to prevent flicker)
 #define DISP_LOOP_M0 	10	// Info screen
-#define DISP_LOOP_M1 	4	// Light bars
-#define DISP_LOOP_M2 	0   // Time signal (refresh on every new I/Q block)
-#define DISP_LOOP_M3 	0	// Spectrum analyzer (refresh on every new I/Q block)
-#define DISP_LOOP_M4 	4	// Effect Menu (Filter Selection)
-#define DISP_LOOP_M5 	4	// Level meter
+#define DISP_LOOP_M1 	0   // Time signal (refresh on every new I/Q block)
+#define DISP_LOOP_M2 	0	// Spectrum analyzer (refresh on every new I/Q block)
+#define DISP_LOOP_M3 	4	// Effect Menu (Filter Selection)
+#define DISP_LOOP_M4 	4	// Level meter
+#define DISP_LOOP_M5 	4	// ...
 #define DISP_LOOP_M6 	4	// ...
 #define DISP_LOOP_M7 	4	// ...
 #define DISP_LOOP_M8 	4	// ...
-#define DISP_LOOP_M9 	4	// ...
-#define DISP_LOOP_M10 	4	// EKG BPM
+#define DISP_LOOP_M9 	4	// EKG BPM
 
 // Define the maximum number of points for the time signal (Display 240 x 320 pixels)
 #define MAX_TIME_SIGNAL_POINTS 240
@@ -67,9 +66,6 @@ static float32_t radar_q_samples[RADAR_CHANNEL_SAMPLES];
 
 static float32_t spectrum_i[RADAR_CHANNEL_SAMPLES / 2];
 static float32_t spectrum_q[RADAR_CHANNEL_SAMPLES / 2];
-
-static float32_t light_avgs[NUMBER_OF_COLORS];
-static float32_t light_peaks[NUMBER_OF_COLORS];
 
 static uint32_t disp_loop_count[MENU_TOTAL_ENTRIES] = {0}; // Loop counters for refreshing display menus
 static bool disp_refresh;			///< Display should be refreshed
@@ -194,7 +190,6 @@ int main(void) {
 		case MENU_SEVEN:
 		case MENU_EIGHT:
 		case MENU_NINE:
-		case MENU_TEN:
 			disp_refresh = true;	// Switch to new menu item
 			break;
 		default:	// Should never occur
@@ -215,14 +210,14 @@ int main(void) {
 			// Show current filter on LCD
 			disp_refresh = true;
 			// Force immediate display refresh by resetting loop counter
-			disp_loop_count[MENU_FOUR] = DISP_LOOP_M4;
+			disp_loop_count[MENU_THREE] = DISP_LOOP_M3;
 		}
 
 		if (ekg_process_if_ready(&ekg_latest)) {
 			if (ekg_latest.r_peak) {
 				ekg_last_peak_tick = HAL_GetTick();
 			}
-			if (MENU_get_active() == MENU_TEN) {
+			if (MENU_get_active() == MENU_NINE) {
 				disp_refresh = true;
 			}
 		}
@@ -264,16 +259,9 @@ int main(void) {
 					disp_info();
 				}
 				break;
-			case MENU_ONE:	// Light bars
+			case MENU_ONE:	// Time signal
 				if (disp_loop_count[MENU_ONE]++ >= DISP_LOOP_M1) {
 					disp_loop_count[MENU_ONE] = 0;
-					disp_clear_data();
-					disp_light_bars(light_avgs, light_peaks);
-				}
-				break;
-			case MENU_TWO:	// Time signal
-				if (disp_loop_count[MENU_TWO]++ >= DISP_LOOP_M2) {
-					disp_loop_count[MENU_TWO] = 0;
 					disp_clear_data();
 					disp_curves(radar_i_samples, TIME_SIGNAL_POINTS,
 							0,
@@ -285,18 +273,18 @@ int main(void) {
 							LCD_COLOR_BLUE);
 				}
 				break;
-			case MENU_THREE: // Frequency spectrum
-				if (disp_loop_count[MENU_THREE]++ >= DISP_LOOP_M3) {
-					disp_loop_count[MENU_THREE] = 0;
+			case MENU_TWO: // Frequency spectrum
+				if (disp_loop_count[MENU_TWO]++ >= DISP_LOOP_M2) {
+					disp_loop_count[MENU_TWO] = 0;
 					disp_clear_data();
 					// Note: x axis is in bins, not in Hz
 					disp_curves(spectrum_i, RADAR_CHANNEL_SAMPLES / 2, 0, 0.05, LCD_COLOR_RED);
 					disp_curves(spectrum_q, RADAR_CHANNEL_SAMPLES / 2, 0, 0.05, LCD_COLOR_BLUE);
 				}
 				break;
-			case MENU_FOUR:	// Effect Menu (Filter Selection)
-				if (disp_loop_count[MENU_FOUR]++ >= DISP_LOOP_M4) {
-					disp_loop_count[MENU_FOUR] = 0;
+			case MENU_THREE:	// Effect Menu (Filter Selection)
+				if (disp_loop_count[MENU_THREE]++ >= DISP_LOOP_M3) {
+					disp_loop_count[MENU_THREE] = 0;
 					disp_clear_data();
 					
 					// Display full-screen filter list with color highlighting for active filter
@@ -322,24 +310,24 @@ int main(void) {
 					}
 				}
 				break;
-			case MENU_FIVE:	// Level meter
-				if (disp_loop_count[MENU_FIVE]++ >= DISP_LOOP_M5) {
-					disp_loop_count[MENU_FIVE] = 0;
+			case MENU_FOUR:	// Level meter
+				if (disp_loop_count[MENU_FOUR]++ >= DISP_LOOP_M4) {
+					disp_loop_count[MENU_FOUR] = 0;
 					disp_clear_data();
 					disp_level(-10, -5, -12, -6); // TODO
 				}
 				break;
+			case MENU_FIVE:
 			case MENU_SIX:
 			case MENU_SEVEN:
 			case MENU_EIGHT:
-			case MENU_NINE:
 				// ToDo ....
 				break;
-			case MENU_TEN:	// EKG BPM
-				if (disp_loop_count[MENU_TEN]++ >= DISP_LOOP_M10) {
+			case MENU_NINE:	// EKG BPM
+				if (disp_loop_count[MENU_NINE]++ >= DISP_LOOP_M9) {
 					char text[32];
 					uint32_t now = HAL_GetTick();
-					disp_loop_count[MENU_TEN] = 0;
+					disp_loop_count[MENU_NINE] = 0;
 					disp_clear_data();
 
 					BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
