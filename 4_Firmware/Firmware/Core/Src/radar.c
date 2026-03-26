@@ -1,9 +1,9 @@
 /**
- * @file    audio_codec.c
+ * @file    radar.c
  * @brief   Radar ADC I/Q acquisition implementation.
  */
 
-#include "audio_codec.h"
+#include "radar.h"
 
 #include <stdint.h>
 
@@ -16,7 +16,7 @@ static uint32_t radar_iq_buffer_pong[RADAR_CHANNEL_SAMPLES];
 static float32_t *radar_i_buffer_pointer = 0;
 static float32_t *radar_q_buffer_pointer = 0;
 
-static uint8_t radar_input_data_ready = 0;
+static uint8_t radar_data_ready = 0;
 
 static void timer2_init_sample_rate(void);
 static void adc_dual_dma_init(void);
@@ -26,7 +26,7 @@ void DMA2_Stream0_IRQHandler(void);
 void DMA2_Stream1_IRQHandler(void);
 void DMA2_Stream5_IRQHandler(void);
 
-HAL_StatusTypeDef radar_input_init(float32_t *i_channel_buffer,
+HAL_StatusTypeDef radar_init(float32_t *i_channel_buffer,
                                    float32_t *q_channel_buffer, uint32_t size)
 {
     GPIO_InitTypeDef gpio_init = {0};
@@ -53,26 +53,26 @@ HAL_StatusTypeDef radar_input_init(float32_t *i_channel_buffer,
     return HAL_OK;
 }
 
-void radar_input_start(void)
+void radar_start(void)
 {
     /* Enable ADC2 first, then ADC1 (master in multimode). */
     ADC2->CR2 |= ADC_CR2_ADON;
     ADC1->CR2 |= ADC_CR2_ADON;
 
     /* Clear stale flags and start timer-triggered conversions. */
-    radar_input_data_ready = 0;
+    radar_data_ready = 0;
     TIM2->EGR = TIM_EGR_UG;
     TIM2->CR1 |= TIM_CR1_CEN;
 }
 
-uint8_t radar_input_frame_ready(void)
+uint8_t radar_frame_ready(void)
 {
-    return radar_input_data_ready;
+    return radar_data_ready;
 }
 
-void radar_input_clear_frame_ready(void)
+void radar_clear_frame_ready(void)
 {
-    radar_input_data_ready = 0;
+    radar_data_ready = 0;
 }
 
 static void timer2_init_sample_rate(void)
@@ -204,7 +204,7 @@ void DMA2_Stream0_IRQHandler(void)
         }
 
         unpack_iq_samples(completed_buffer);
-        radar_input_data_ready = 1;
+        radar_data_ready = 1;
         BSP_LED_Toggle(LED4);
     }
 }

@@ -31,7 +31,7 @@
 
 #include "calc.h"
 #include "display.h"
-#include "audio_codec.h"
+#include "radar.h"
 #include "filters.h"
 #include "ekg.h"
 
@@ -136,10 +136,10 @@ int main(void) {
 
 	gyro_disable();					// Disable gyro, use those analog inputs
 
-	ret_val = radar_input_init(radar_i_samples, radar_q_samples, RADAR_CHANNEL_SAMPLES);
+	ret_val = radar_init(radar_i_samples, radar_q_samples, RADAR_CHANNEL_SAMPLES);
 	error_handling(ret_val);
 
-	radar_input_start();
+	radar_start();
 
 	/* --------------------------------------------------------------------
 	 * Signal filter configuration (biquad)
@@ -227,8 +227,8 @@ int main(void) {
 			}
 		}
 
-		if (radar_input_frame_ready()) {
-			radar_input_clear_frame_ready();
+		if (radar_frame_ready()) {
+			radar_clear_frame_ready();
 			//BSP_LED_On(LED4);
 
 			if (efect_active) {

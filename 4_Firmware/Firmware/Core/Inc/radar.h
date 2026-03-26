@@ -1,5 +1,5 @@
 /**
- * @file    audio_codec.h
+ * @file    radar.h
  * @author  Patrick Rennhard (renn@zhaw.ch)
  * @date    2025-09-24
  * @version 1.0
@@ -11,8 +11,8 @@
  * using timer-triggered simultaneous sampling and DMA ping-pong buffers.
  */
 
-#ifndef AUDIO_CODEC_H_
-#define AUDIO_CODEC_H_
+#ifndef RADAR_H_
+#define RADAR_H_
 
 /******************************************************************************
  * Includes
@@ -49,9 +49,9 @@
  *         - HAL_OK: Initialization successful.
  *         - HAL_ERROR: Initialization failed.
  *
- * @note Must be called before `radar_input_start()`.
+ * @note Must be called before `radar_start()`.
  */
-HAL_StatusTypeDef radar_input_init(float32_t *i_channel_buffer,
+HAL_StatusTypeDef radar_init(float32_t *i_channel_buffer,
                                    float32_t *q_channel_buffer, uint32_t size);
 
 /**
@@ -61,7 +61,7 @@ HAL_StatusTypeDef radar_input_init(float32_t *i_channel_buffer,
  * DMA runs in circular double-buffer mode and continuously fills
  * I/Q sample frames.
  */
-void radar_input_start(void);
+void radar_start(void);
 
 /**
  * @brief Checks if a new radar I/Q frame is available.
@@ -74,17 +74,17 @@ void radar_input_start(void);
  * @note Typically called immediately after the DMA interrupt or in
  *       the radar processing loop to ensure timely handling of data.
  */
-uint8_t radar_input_frame_ready(void);
+uint8_t radar_frame_ready(void);
 
 /**
  * @brief Clears the radar frame-ready flag.
  *
- * This function should be called after polling `radar_input_frame_ready()`
+ * This function should be called after polling `radar_frame_ready()`
  * and consuming the available I/Q frame.
  *
  * @note Typically used in the radar processing loop immediately after
  *       handling the data.
  */
-void radar_input_clear_frame_ready(void);
+void radar_clear_frame_ready(void);
 
 #endif
