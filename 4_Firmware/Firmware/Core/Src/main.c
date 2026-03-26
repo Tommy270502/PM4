@@ -5,7 +5,6 @@
  * Initialization is done for the system, the blue user button, the user LEDs,
  * and the LCD display with the touchscreen.
  * @n All the peripherals needed for measuring are initialized.
- * And also those for the DMXoutputs.
  * @n Then the code enters an infinite while-loop, where it checks for
  * user input or newly available data and refreshes the display accordingly.
  *
@@ -32,7 +31,6 @@
 
 #include "calc.h"
 #include "display.h"
-#include "DMX.h"
 #include "audio_codec.h"
 #include "filters.h"
 
@@ -165,8 +163,6 @@ int main(void) {
 	// Set initial effect state (active for LOWPASS)
 	efect_active = (current_filter_index != FILTER_BYPASS);
 
-	DMX_init();                     // Init DMX interf. to LED party panel
-
 	ret_val = calc_init();
 	error_handling(ret_val);
 
@@ -248,69 +244,10 @@ int main(void) {
 			error_handling(ret_val);
 			ret_val = calc_freq(right_channel_samples, spectrum_right);
 			error_handling(ret_val);
-
-			// Map frequency data to light averages and peaks for DMX output 
-			/*
-			*   fs  = 48 kHz
-			*   N   = 1024	->  Δf ≈ 46.9 Hz
-			*
-			*   Bass:           < 250 Hz    -> FFT[ 1..  6]
-			*   Low midrange:   250–2 kHz	-> FFT[ 7.. 43]
-			*   Upper midrange:	2–4 kHz     -> FFT[44.. 85]
-			*   Treble:         > 4 kHz     -> FFT[86..511]
-			*/
-			light_avgs[0] = 0.0;
-			light_peaks[0] = 0.0;
-			for (uint16_t i = 1; i <= 6; i++) {
-				light_avgs[0] += powf(spectrum_left[i], 2);
-				if (spectrum_left[i] > light_peaks[0]) {
-					light_peaks[0] = spectrum_left[i];
-				}
-			}
-			light_avgs[0] = sqrtf(light_avgs[0]);
-
-			light_avgs[1] = 0.0;
-			light_peaks[1] = 0.0;
-			for (uint16_t i = 7; i <= 43; i++) {
-				light_avgs[1] += powf(spectrum_left[i], 2);
-				if (spectrum_left[i] > light_peaks[1]) {
-					light_peaks[1] = spectrum_left[i];
-				}
-			}
-			light_avgs[1] = sqrtf(light_avgs[1]);
-
-			light_avgs[2] = 0.0;
-			light_peaks[2] = 0.0;
-			for (uint16_t i = 44; i <= 85; i++) {
-				light_avgs[2] += powf(spectrum_left[i], 2);
-				if (spectrum_left[i] > light_peaks[2]) {
-					light_peaks[2] = spectrum_left[i];
-				}
-			}
-			light_avgs[2] = sqrtf(light_avgs[2]);
-
-			light_avgs[3] = 0.0;
-			light_peaks[3] = 0.0;
-			for (uint16_t i = 86; i <= 511; i++) {
-				light_avgs[3] += powf(spectrum_left[i], 2);
-				if (spectrum_left[i] > light_peaks[3]) {
-					light_peaks[3] = spectrum_left[i];
-				}
-			}
-			light_avgs[3] = sqrtf(light_avgs[3]);
-
-			// Set new DMX values to light_avgs
-			DMX_setColor(
-					(uint8_t)(light_avgs[0] * 255.0f),
-					(uint8_t)(light_avgs[1] * 255.0f),
-					(uint8_t)(light_avgs[2] * 255.0f),
-					(uint8_t)(light_avgs[3] * 255.0f)
-			);
+			
 
 			disp_refresh = true;      // Tell the display about the new data
 		}
-
-		DMX_transmit(); // Transmit (new) values to party panel. Regular execution is required; otherwise, the lamp will turn off.
 
 		if (disp_refresh) {
 			disp_refresh = false;
