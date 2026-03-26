@@ -56,6 +56,7 @@
  * Includes
  *****************************************************************************/
 #include <stdio.h>
+#include <string.h>
 #include "stm32f4xx.h"
 #include "stm32f429i_discovery.h"
 #include "stm32f429i_discovery_lcd.h"
@@ -73,6 +74,8 @@
 #define TIM_CLOCK		84000000	///< APB1 timer clock frequency
 #define TIM_TOP			9			///< Timer top value
 #define TIM_PRESCALE	(TIM_CLOCK/ADC_FS/(TIM_TOP+1)-1) ///< Clock prescaler
+#define RADAR_CLIP_LOW	8U
+#define RADAR_CLIP_HIGH	4087U
 
 
 /******************************************************************************
@@ -85,6 +88,14 @@ bool DAC_active = false;				///< DAC output active?
 static uint32_t ADC_sample_count = 0;	///< Index for buffer
 static uint32_t ADC_samples[2*ADC_NUMS];///< ADC values of max. 2 input channels
 static uint32_t DAC_sample = 0;			///< DAC output value
+
+static uint32_t radar_dma_packed[MEAS_FRAME_LEN];
+static MEAS_RadarFrame_t radar_frame;
+static volatile bool radar_frame_ready = false;
+static volatile bool radar_frame_pending = false;
+static volatile bool radar_mode_active = false;
+static volatile bool radar_overrun_latched = false;
+static uint32_t radar_frame_counter = 0;
 
 
 /******************************************************************************
@@ -213,6 +224,109 @@ void MEAS_timer_init(void)
 
 
 /** ***************************************************************************
+ * @brief Start one radar acquisition frame in dual ADC mode.
+ *****************************************************************************/
+bool MEAS_start_radar_single(void)
+{
+	uint32_t radar_prescale;
+
+	if (radar_mode_active) {
+		return false;
+	}
+
+	if (radar_frame_pending) {
+		radar_overrun_latched = true;
+	}
+
+	MEAS_input_count = 2;
+	radar_mode_active = true;
+	radar_frame_ready = false;
+	MEAS_data_ready = false;
+
+	__HAL_RCC_ADC1_CLK_ENABLE();
+	__HAL_RCC_ADC2_CLK_ENABLE();
+	__HAL_RCC_DMA2_CLK_ENABLE();
+
+	ADC->CCR &= ~(ADC_CCR_MULTI | ADC_CCR_DMA | ADC_CCR_ADCPRE);
+	ADC->CCR |= ADC_CCR_DMA_1;
+	ADC->CCR |= ADC_CCR_MULTI_1 | ADC_CCR_MULTI_2;
+	ADC->CCR |= ADC_CCR_ADCPRE_0;
+
+	ADC1->CR2 &= ~(ADC_CR2_EXTEN | ADC_CR2_EXTSEL);
+	ADC1->CR2 |= (1UL << ADC_CR2_EXTEN_Pos);
+	ADC1->CR2 |= (6UL << ADC_CR2_EXTSEL_Pos);
+
+	ADC1->SQR3 &= ~ADC_SQR3_SQ1_Msk;
+	ADC1->SQR3 |= (13UL << ADC_SQR3_SQ1_Pos); // ADC1 -> PC3 -> Q
+	ADC2->SQR3 &= ~ADC_SQR3_SQ1_Msk;
+	ADC2->SQR3 |= (11UL << ADC_SQR3_SQ1_Pos); // ADC2 -> PC1 -> I
+
+	ADC1->SMPR1 &= ~ADC_SMPR1_SMP13_Msk;
+	ADC1->SMPR1 |= (4UL << ADC_SMPR1_SMP13_Pos); // 84 cycles for IN13
+	ADC2->SMPR1 &= ~ADC_SMPR1_SMP11_Msk;
+	ADC2->SMPR1 |= (4UL << ADC_SMPR1_SMP11_Pos); // 84 cycles for IN11
+
+	DMA2_Stream4->CR &= ~DMA_SxCR_EN;
+	while (DMA2_Stream4->CR & DMA_SxCR_EN) { ; }
+
+	DMA2->HIFCR |= DMA_HIFCR_CTCIF4;
+	DMA2_Stream4->CR = 0;
+	DMA2_Stream4->CR |= (0UL << DMA_SxCR_CHSEL_Pos);
+	DMA2_Stream4->CR |= DMA_SxCR_PL_1;
+	DMA2_Stream4->CR |= DMA_SxCR_MSIZE_1;
+	DMA2_Stream4->CR |= DMA_SxCR_PSIZE_1;
+	DMA2_Stream4->CR |= DMA_SxCR_MINC;
+	DMA2_Stream4->CR |= DMA_SxCR_TCIE;
+	DMA2_Stream4->NDTR = MEAS_FRAME_LEN;
+	DMA2_Stream4->PAR = (uint32_t)&ADC->CDR;
+	DMA2_Stream4->M0AR = (uint32_t)radar_dma_packed;
+
+	radar_prescale = (uint32_t)(TIM_CLOCK / MEAS_SAMPLE_RATE_HZ / (TIM_TOP + 1U) - 1U);
+	TIM2->PSC = radar_prescale;
+	TIM2->ARR = TIM_TOP;
+	TIM2->CNT = 0;
+	TIM2->CR2 &= ~TIM_CR2_MMS;
+	TIM2->CR2 |= TIM_CR2_MMS_1;
+
+	DMA2_Stream4->CR |= DMA_SxCR_EN;
+	NVIC_ClearPendingIRQ(DMA2_Stream4_IRQn);
+	NVIC_EnableIRQ(DMA2_Stream4_IRQn);
+
+	ADC1->CR2 |= ADC_CR2_ADON;
+	ADC2->CR2 |= ADC_CR2_ADON;
+	TIM2->CR1 |= TIM_CR1_CEN;
+
+	return true;
+}
+
+
+/** ***************************************************************************
+ * @brief Check if a radar frame is ready.
+ *****************************************************************************/
+bool MEAS_is_frame_ready(void)
+{
+	return radar_frame_ready;
+}
+
+
+/** ***************************************************************************
+ * @brief Copy the latest radar frame and mark it as consumed.
+ *****************************************************************************/
+bool MEAS_consume_radar_frame(MEAS_RadarFrame_t *out_frame)
+{
+	if ((out_frame == 0) || (!radar_frame_ready)) {
+		return false;
+	}
+
+	memcpy(out_frame, &radar_frame, sizeof(MEAS_RadarFrame_t));
+	radar_frame_ready = false;
+	radar_frame_pending = false;
+	MEAS_data_ready = false;
+	return true;
+}
+
+
+/** ***************************************************************************
  * @brief Initialize the ADC to be triggered by a timer
  *
  * The ADC3 trigger is set to TIM2 TRGO event
@@ -321,16 +435,19 @@ void ADC1_IN13_ADC2_IN11_dual_init(void)
 	ADC->CCR   |= ADC_CCR_MULTI_1 | ADC_CCR_MULTI_2; // ADC1 and ADC2 simultan.
 	ADC->CCR   &= ~ADC_CCR_ADCPRE;					// Clear Prescaler
 	ADC->CCR   |= ADC_CCR_ADCPRE_0;					// Set Prescaler to 01 -> Division by 4, with 84 MHz PCLK2 this gives 21 MHz ADC clock.
+	ADC1->CR2  &= ~(ADC_CR2_EXTEN | ADC_CR2_EXTSEL);
 	ADC1->CR2  |= (1UL << ADC_CR2_EXTEN_Pos);		// En. ext. trigger on rising e.
 	ADC1->CR2  |= (6UL << ADC_CR2_EXTSEL_Pos);		// Timer 2 TRGO event
+	ADC1->SQR3 &= ~ADC_SQR3_SQ1_Msk;
 	ADC1->SQR3 |= (13UL << ADC_SQR3_SQ1_Pos);		// Input 13 = first conversion
+	ADC2->SQR3 &= ~ADC_SQR3_SQ1_Msk;
 	ADC2->SQR3 |= (11UL << ADC_SQR3_SQ1_Pos);		// Input 11 = first conversion
 
-	ADC1->SMPR2 &= ~(ADC_SMPR2_SMP0);
-	ADC1->SMPR2 |= (ADC_SMPR2_SMP0_2);       // Channel 0 Sample time selection:  0b100 -> 84 cycles
+	ADC1->SMPR1 &= ~ADC_SMPR1_SMP13_Msk;
+	ADC1->SMPR1 |= (4UL << ADC_SMPR1_SMP13_Pos); // Channel 13 sample time: 84 cycles
 
-	ADC2->SMPR2 &= ~(ADC_SMPR2_SMP0);
-	ADC2->SMPR2 |= (ADC_SMPR2_SMP0_2);      // Channel 0 Sample time selection:  0b100 -> 84 cycles
+	ADC2->SMPR1 &= ~ADC_SMPR1_SMP11_Msk;
+	ADC2->SMPR1 |= (4UL << ADC_SMPR1_SMP11_Pos); // Channel 11 sample time: 84 cycles
 
 	__HAL_RCC_DMA2_CLK_ENABLE();		// Enable Clock for DMA2
 	DMA2_Stream4->CR &= ~DMA_SxCR_EN;	// Disable the DMA stream 4
@@ -563,6 +680,13 @@ void DMA2_Stream3_IRQHandler(void)
  *****************************************************************************/
 void DMA2_Stream4_IRQHandler(void)
 {
+	uint32_t packed_sample;
+	uint16_t sample_q;
+	uint16_t sample_i;
+	uint32_t i;
+	bool clip_i = false;
+	bool clip_q = false;
+
 	if (DMA2->HISR & DMA_HISR_TCIF4) {	// Stream4 transfer compl. interrupt f.
 		NVIC_DisableIRQ(DMA2_Stream4_IRQn);	// Disable DMA interrupt in the NVIC
 		NVIC_ClearPendingIRQ(DMA2_Stream4_IRQn);// Clear pending DMA interrupt
@@ -573,13 +697,46 @@ void DMA2_Stream4_IRQHandler(void)
 		ADC1->CR2 &= ~ADC_CR2_ADON;		// Disable ADC1
 		ADC2->CR2 &= ~ADC_CR2_ADON;		// Disable ADC2
 		ADC->CCR &= ~ADC_CCR_DMA_1;		// Disable DMA mode
-		/* Extract combined samples */
-		for (int32_t i = ADC_NUMS-1; i >= 0; i--){
-			ADC_samples[2*i+1] = (ADC_samples[i] >> 16);
-			ADC_samples[2*i]   = (ADC_samples[i] & 0xffff);
+
+		if (radar_mode_active) {
+			for (i = 0U; i < MEAS_FRAME_LEN; i++) {
+				packed_sample = radar_dma_packed[i];
+				sample_q = (uint16_t)(packed_sample & 0x0FFFU);            // ADC1 -> Q
+				sample_i = (uint16_t)((packed_sample >> 16) & 0x0FFFU);    // ADC2 -> I
+
+				radar_frame.raw_q[i] = sample_q;
+				radar_frame.raw_i[i] = sample_i;
+
+				if ((sample_i <= RADAR_CLIP_LOW) || (sample_i >= RADAR_CLIP_HIGH)) {
+					clip_i = true;
+				}
+				if ((sample_q <= RADAR_CLIP_LOW) || (sample_q >= RADAR_CLIP_HIGH)) {
+					clip_q = true;
+				}
+			}
+
+			radar_frame.sample_count = MEAS_FRAME_LEN;
+			radar_frame.sample_rate_hz = MEAS_SAMPLE_RATE_HZ;
+			radar_frame.frame_id = ++radar_frame_counter;
+			radar_frame.clip_i = clip_i;
+			radar_frame.clip_q = clip_q;
+			radar_frame.dma_overrun = (bool)(radar_overrun_latched || radar_frame_pending);
+
+			radar_frame_ready = true;
+			radar_frame_pending = true;
+			radar_overrun_latched = false;
+			radar_mode_active = false;
+			MEAS_data_ready = true;
+		} else {
+			/* Extract combined demo samples */
+			for (int32_t j = ADC_NUMS-1; j >= 0; j--){
+				ADC_samples[2*j+1] = ((ADC_samples[j] >> 16) & 0x0FFFU);
+				ADC_samples[2*j]   = (ADC_samples[j] & 0x0FFFU);
+			}
+			MEAS_data_ready = true;
 		}
+
 		ADC_reset();
-		MEAS_data_ready = true;
 	}
 }
 
