@@ -1,3 +1,10 @@
+/**
+ * @file ekg.c
+ * @brief AD8232 acquisition and ECG signal processing on STM32F429
+ * @author Thomas Perri, perritho@students.zhaw.ch
+ * @date 2026-03-26
+ */
+
 #include "ekg.h"
 
 #include "stm32f4xx.h"

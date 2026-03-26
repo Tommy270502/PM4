@@ -1,6 +1,8 @@
 /**
  * @file ekg.h
- * @brief AD8232 acquisition and ECG signal processing on STM32F429.
+ * @brief AD8232 acquisition and ECG signal processing on STM32F429
+ * @author Thomas Perri, perritho@students.zhaw.ch
+ * @date 2026-03-26
  *
  * Acquisition architecture (non-blocking):
  * 1) TIM3 periodic interrupt defines sampling frequency
