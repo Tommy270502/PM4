@@ -8,15 +8,18 @@
 
 #include "audio_codec.h"
 
+#include <stdint.h>
+
+#include "stm32f4xx.h"
 #include "stm32f429i_discovery.h"
 
-static uint32_t radar_iq_buffer_ping[AUDIO_CHANNEL_SIZE];
-static uint32_t radar_iq_buffer_pong[AUDIO_CHANNEL_SIZE];
+static uint32_t radar_iq_buffer_ping[RADAR_CHANNEL_SAMPLES];
+static uint32_t radar_iq_buffer_pong[RADAR_CHANNEL_SAMPLES];
 
-static float32_t *left_channel_buffer_pointer = 0;
-static float32_t *right_channel_buffer_pointer = 0;
+static float32_t *radar_i_buffer_pointer = 0;
+static float32_t *radar_q_buffer_pointer = 0;
 
-static uint8_t audio_codec_data_ready = 0;
+static uint8_t radar_input_data_ready = 0;
 
 static void timer2_init_sample_rate(void);
 static void adc_dual_dma_init(void);
@@ -26,18 +29,18 @@ void DMA2_Stream0_IRQHandler(void);
 void DMA2_Stream1_IRQHandler(void);
 void DMA2_Stream5_IRQHandler(void);
 
-HAL_StatusTypeDef codec_init(float32_t *left_channel_buffer,
-                             float32_t *right_channel_buffer, uint32_t size)
+HAL_StatusTypeDef radar_input_init(float32_t *i_channel_buffer,
+                                   float32_t *q_channel_buffer, uint32_t size)
 {
     GPIO_InitTypeDef gpio_init = {0};
 
-    if ((left_channel_buffer == 0) || (right_channel_buffer == 0) || (size < AUDIO_CHANNEL_SIZE))
+    if ((i_channel_buffer == 0) || (q_channel_buffer == 0) || (size < RADAR_CHANNEL_SAMPLES))
     {
         return HAL_ERROR;
     }
 
-    left_channel_buffer_pointer = left_channel_buffer;
-    right_channel_buffer_pointer = right_channel_buffer;
+    radar_i_buffer_pointer = i_channel_buffer;
+    radar_q_buffer_pointer = q_channel_buffer;
 
     __HAL_RCC_GPIOC_CLK_ENABLE();
 
@@ -53,26 +56,26 @@ HAL_StatusTypeDef codec_init(float32_t *left_channel_buffer,
     return HAL_OK;
 }
 
-void codec_start(void)
+void radar_input_start(void)
 {
     /* Enable ADC2 first, then ADC1 (master in multimode). */
     ADC2->CR2 |= ADC_CR2_ADON;
     ADC1->CR2 |= ADC_CR2_ADON;
 
     /* Clear stale flags and start timer-triggered conversions. */
-    audio_codec_data_ready = 0;
+    radar_input_data_ready = 0;
     TIM2->EGR = TIM_EGR_UG;
     TIM2->CR1 |= TIM_CR1_CEN;
 }
 
-uint8_t codec_data_ready(void)
+uint8_t radar_input_frame_ready(void)
 {
-    return audio_codec_data_ready;
+    return radar_input_data_ready;
 }
 
-void codec_clear_data_ready(void)
+void radar_input_clear_frame_ready(void)
 {
-    audio_codec_data_ready = 0;
+    radar_input_data_ready = 0;
 }
 
 static void timer2_init_sample_rate(void)
@@ -85,7 +88,7 @@ static void timer2_init_sample_rate(void)
     TIM2->CR2 = 0;
     TIM2->PSC = 83U;     /* 84 MHz / (83 + 1) = 1 MHz timer tick */
 
-    ticks_per_sample = (1000000U + (CODEC_SAMPLE_RATE_HZ / 2U)) / CODEC_SAMPLE_RATE_HZ;
+    ticks_per_sample = (1000000U + (RADAR_SAMPLE_RATE_HZ / 2U)) / RADAR_SAMPLE_RATE_HZ;
     if (ticks_per_sample == 0U)
     {
         ticks_per_sample = 1U;
@@ -157,7 +160,7 @@ static void adc_dual_dma_init(void)
     DMA2_Stream0->CR |= DMA_SxCR_DBM;
     DMA2_Stream0->CR |= DMA_SxCR_TCIE;
 
-    DMA2_Stream0->NDTR = AUDIO_CHANNEL_SIZE;
+    DMA2_Stream0->NDTR = RADAR_CHANNEL_SAMPLES;
     DMA2_Stream0->PAR = (uint32_t)&(ADC->CDR);
     DMA2_Stream0->M0AR = (uint32_t)radar_iq_buffer_ping;
     DMA2_Stream0->M1AR = (uint32_t)radar_iq_buffer_pong;
@@ -171,18 +174,18 @@ static void adc_dual_dma_init(void)
 
 static void unpack_iq_samples(uint32_t *packed_buffer)
 {
-    if ((packed_buffer == 0) || (left_channel_buffer_pointer == 0) || (right_channel_buffer_pointer == 0))
+    if ((packed_buffer == 0) || (radar_i_buffer_pointer == 0) || (radar_q_buffer_pointer == 0))
     {
         return;
     }
 
-    for (uint32_t i = 0; i < AUDIO_CHANNEL_SIZE; i++)
+    for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++)
     {
         uint32_t pair = packed_buffer[i];
 
         /* CDR layout in dual regular mode: [31:16]=ADC2 (Q), [15:0]=ADC1 (I). */
-        left_channel_buffer_pointer[i] = (float32_t)(pair & 0xFFFFU);
-        right_channel_buffer_pointer[i] = (float32_t)((pair >> 16) & 0xFFFFU);
+        radar_i_buffer_pointer[i] = (float32_t)(pair & 0xFFFFU);
+        radar_q_buffer_pointer[i] = (float32_t)((pair >> 16) & 0xFFFFU);
     }
 }
 
@@ -204,7 +207,7 @@ void DMA2_Stream0_IRQHandler(void)
         }
 
         unpack_iq_samples(completed_buffer);
-        audio_codec_data_ready = 1;
+        radar_input_data_ready = 1;
         BSP_LED_Toggle(LED4);
     }
 }

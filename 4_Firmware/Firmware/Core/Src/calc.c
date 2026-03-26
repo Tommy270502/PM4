@@ -242,10 +242,10 @@ HAL_StatusTypeDef calc_init(void) {
 	HAL_StatusTypeDef ret_val;
 	arm_status ret;
 
-	ret = arm_rfft_fast_init_f32(&fft_instance, AUDIO_CHANNEL_SIZE);
+	ret = arm_rfft_fast_init_f32(&fft_instance, RADAR_CHANNEL_SAMPLES);
 
-	fft_abs_scale = 1 / ((float32_t) AUDIO_CHANNEL_SIZE); // divide by Nfft
-	fft_abs_scale = fft_abs_scale * CODEC_ADC_REF_VOLTAGE / (1 << (CODEC_ADC_RES)); //normalise samples to Volt
+	fft_abs_scale = 1 / ((float32_t) RADAR_CHANNEL_SAMPLES); // divide by Nfft
+	fft_abs_scale = fft_abs_scale * RADAR_ADC_REF_VOLTAGE / (1 << (RADAR_ADC_RES)); // normalise samples to Volt
 
 	ret_val = (ret == ARM_MATH_SUCCESS) ? HAL_OK : HAL_ERROR;
 
@@ -253,17 +253,17 @@ HAL_StatusTypeDef calc_init(void) {
 }
 
 HAL_StatusTypeDef calc_freq(const float32_t in[], float32_t out[]) {
-	static float buffer1[AUDIO_CHANNEL_SIZE];	// Temporary buffer 1
-	static float buffer2[AUDIO_CHANNEL_SIZE];	// Temporary buffer 2
+	static float buffer1[RADAR_CHANNEL_SAMPLES];	// Temporary buffer 1
+	static float buffer2[RADAR_CHANNEL_SAMPLES];	// Temporary buffer 2
 
 	// Apply window against leakage
-	arm_mult_f32((float32_t*) in, (float32_t*) HANN_WINDOW_1024, buffer1, AUDIO_CHANNEL_SIZE);
+	arm_mult_f32((float32_t*) in, (float32_t*) HANN_WINDOW_1024, buffer1, RADAR_CHANNEL_SAMPLES);
 
 	arm_rfft_fast_f32(&fft_instance, buffer1, buffer2, 0);
 
-	arm_cmplx_mag_f32(buffer2, buffer1, AUDIO_CHANNEL_SIZE / 2); // output size only  AUDIO_CHANNEL_SIZE/2
+	arm_cmplx_mag_f32(buffer2, buffer1, RADAR_CHANNEL_SAMPLES / 2); // output size only RADAR_CHANNEL_SAMPLES/2
 
-	arm_scale_f32(buffer1, fft_abs_scale, out, AUDIO_CHANNEL_SIZE / 2);
+	arm_scale_f32(buffer1, fft_abs_scale, out, RADAR_CHANNEL_SAMPLES / 2);
 
 	return HAL_OK;
 }

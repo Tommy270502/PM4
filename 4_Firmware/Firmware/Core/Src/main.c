@@ -44,7 +44,7 @@
 #define DISP_LOOP_M2 	0   // Time signal (refresh on every new I/Q block)
 #define DISP_LOOP_M3 	0	// Spectrum analyzer (refresh on every new I/Q block)
 #define DISP_LOOP_M4 	4	// Effect Menu (Filter Selection)
-#define DISP_LOOP_M5 	4	// Audio level
+#define DISP_LOOP_M5 	4	// Level meter
 #define DISP_LOOP_M6 	4	// ...
 #define DISP_LOOP_M7 	4	// ...
 #define DISP_LOOP_M8 	4	// ...
@@ -54,19 +54,19 @@
 // Define the maximum number of points for the time signal (Display 240 x 320 pixels)
 #define MAX_TIME_SIGNAL_POINTS 240
 
-// Define time_signal_points based on AUDIO_CHANNEL_SIZE, ensuring it's capped at MAX_TIME_SIGNAL_POINTS
-#define TIME_SIGNAL_POINTS (AUDIO_CHANNEL_SIZE > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : AUDIO_CHANNEL_SIZE)
+// Define time_signal_points based on RADAR_CHANNEL_SAMPLES, ensuring it's capped at MAX_TIME_SIGNAL_POINTS
+#define TIME_SIGNAL_POINTS (RADAR_CHANNEL_SAMPLES > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : RADAR_CHANNEL_SAMPLES)
 
 
 /******************************************************************************
  * Variables
  *****************************************************************************/
 
-static float32_t left_channel_samples[AUDIO_CHANNEL_SIZE];
-static float32_t right_channel_samples[AUDIO_CHANNEL_SIZE];
+static float32_t radar_i_samples[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_q_samples[RADAR_CHANNEL_SAMPLES];
 
-static float32_t spectrum_left[AUDIO_CHANNEL_SIZE / 2];
-static float32_t spectrum_right[AUDIO_CHANNEL_SIZE / 2];
+static float32_t spectrum_i[RADAR_CHANNEL_SAMPLES / 2];
+static float32_t spectrum_q[RADAR_CHANNEL_SAMPLES / 2];
 
 static float32_t light_avgs[NUMBER_OF_COLORS];
 static float32_t light_peaks[NUMBER_OF_COLORS];
@@ -136,21 +136,20 @@ int main(void) {
 
 	gyro_disable();					// Disable gyro, use those analog inputs
 
-	ret_val = codec_init(left_channel_samples, right_channel_samples, AUDIO_CHANNEL_SIZE);	// Audio Codec init
+	ret_val = radar_input_init(radar_i_samples, radar_q_samples, RADAR_CHANNEL_SAMPLES);
 	error_handling(ret_val);
 
-	codec_start();
+	radar_input_start();
 
 	/* --------------------------------------------------------------------
-	 * Audio effect configuration (biquad)
+	 * Signal filter configuration (biquad)
 	 *
 	 * Pre-configure all 5 filter types for instant switching.
 	 * Notes:
-	 * - fs must match the *actual* audio stream sample-rate.
-	 *   In CODEC mode (CS4271) this is typically 48 kHz.
+	 * - fs must match the radar I/Q sampling rate.
 	 * - Q controls resonance / bandwidth. Q=0.707 is a good general default.
 	 * -------------------------------------------------------------------- */
-	const float32_t fs = (float32_t)CODEC_SAMPLE_RATE_HZ; /* radar sampling rate */
+	const float32_t fs = (float32_t)RADAR_SAMPLE_RATE_HZ; /* radar sampling rate */
 	const float32_t f0 = 2.0f;             /* low-frequency heartbeat range */
 	const float32_t Q  = 0.707f;            /* Butterworth-ish */
 	
@@ -228,8 +227,8 @@ int main(void) {
 			}
 		}
 
-		if (codec_data_ready()) {
-			codec_clear_data_ready();
+		if (radar_input_frame_ready()) {
+			radar_input_clear_frame_ready();
 			//BSP_LED_On(LED4);
 
 			if (efect_active) {
@@ -237,15 +236,15 @@ int main(void) {
 				 * Apply the currently selected biquad filter to each channel in-place.
 				 * BYPASS mode skips processing entirely via efect_active flag.
 				 */
-				biquad_process_buffer(&fxL[current_filter_index], left_channel_samples, AUDIO_CHANNEL_SIZE);
-				biquad_process_buffer(&fxR[current_filter_index], right_channel_samples, AUDIO_CHANNEL_SIZE);
+				biquad_process_buffer(&fxL[current_filter_index], radar_i_samples, RADAR_CHANNEL_SAMPLES);
+				biquad_process_buffer(&fxR[current_filter_index], radar_q_samples, RADAR_CHANNEL_SAMPLES);
 			}
 
 
-			// Use the audio data in left_channel_samples and right_channel_samples for the different calculations.
-			ret_val = calc_freq(left_channel_samples, spectrum_left);
+			// Use radar I/Q buffers for calculations.
+			ret_val = calc_freq(radar_i_samples, spectrum_i);
 			error_handling(ret_val);
-			ret_val = calc_freq(right_channel_samples, spectrum_right);
+			ret_val = calc_freq(radar_q_samples, spectrum_q);
 			error_handling(ret_val);
 			
 
@@ -276,13 +275,13 @@ int main(void) {
 				if (disp_loop_count[MENU_TWO]++ >= DISP_LOOP_M2) {
 					disp_loop_count[MENU_TWO] = 0;
 					disp_clear_data();
-					disp_curves(left_channel_samples, TIME_SIGNAL_POINTS,
-							-(1 << (CODEC_ADC_RES - 1)) / 2,
-							(1 << (CODEC_ADC_RES - 1)) / 2,
+					disp_curves(radar_i_samples, TIME_SIGNAL_POINTS,
+							0,
+							(1 << RADAR_ADC_RES) - 1,
 							LCD_COLOR_RED);
-					disp_curves(right_channel_samples, TIME_SIGNAL_POINTS,
-							-(1 << (CODEC_ADC_RES - 1)) / 2,
-							(1 << (CODEC_ADC_RES - 1)) / 2,
+					disp_curves(radar_q_samples, TIME_SIGNAL_POINTS,
+							0,
+							(1 << RADAR_ADC_RES) - 1,
 							LCD_COLOR_BLUE);
 				}
 				break;
@@ -291,8 +290,8 @@ int main(void) {
 					disp_loop_count[MENU_THREE] = 0;
 					disp_clear_data();
 					// Note: x axis is in bins, not in Hz
-					disp_curves(spectrum_left, AUDIO_CHANNEL_SIZE / 2, 0, 0.05, LCD_COLOR_RED);
-					disp_curves(spectrum_right, AUDIO_CHANNEL_SIZE / 2, 0, 0.05, LCD_COLOR_BLUE);
+					disp_curves(spectrum_i, RADAR_CHANNEL_SAMPLES / 2, 0, 0.05, LCD_COLOR_RED);
+					disp_curves(spectrum_q, RADAR_CHANNEL_SAMPLES / 2, 0, 0.05, LCD_COLOR_BLUE);
 				}
 				break;
 			case MENU_FOUR:	// Effect Menu (Filter Selection)
@@ -323,7 +322,7 @@ int main(void) {
 					}
 				}
 				break;
-			case MENU_FIVE:	// Audio level
+			case MENU_FIVE:	// Level meter
 				if (disp_loop_count[MENU_FIVE]++ >= DISP_LOOP_M5) {
 					disp_loop_count[MENU_FIVE] = 0;
 					disp_clear_data();

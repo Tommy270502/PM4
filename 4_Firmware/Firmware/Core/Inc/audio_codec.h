@@ -3,19 +3,12 @@
  * @author  Patrick Rennhard (renn@zhaw.ch)
  * @date    2025-09-24
  * @version 1.0
- * @brief   API for audio codec initialization, SAI/DMA handling, and audio buffer management.
+ * @brief   Radar I/Q acquisition API using ADC dual-mode and DMA.
  *
- * DUAL-MODE AUDIO INPUT ARCHITECTURE:
- * ------------------------------------
- * This driver supports audio codec input modes with the following features:
- * - Audio input from external codec via SAI1 Block A (PE3/PE4/PE5)
- * - Codec provides I2S clock (slave mode)
- * - Supports mono/stereo detection via ADC on PF8
- * - DMA2 Stream1 handles reception
- * - Output to codec via SAI1 Block B (PE6) and DMA2 Stream5
- * - Use ping-pong buffer architecture
- * - Process audio as float32_t arrays
- * - Support 24-bit audio in 32-bit I2S frames
+ * This module captures radar I/Q samples from:
+ * - PC1 (I) via ADC1
+ * - PC3 (Q) via ADC2
+ * using timer-triggered simultaneous sampling and DMA ping-pong buffers.
  */
 
 #ifndef AUDIO_CODEC_H_
@@ -30,76 +23,68 @@
 /******************************************************************************
  * Defines
  *****************************************************************************/
-#define AUDIO_FRAME_SIZE 2048
-#define AUDIO_CHANNEL_SIZE  (AUDIO_FRAME_SIZE/2) //AUDIO_FRAME_SIZE / 2 = number of samples per left or right channels
+#define RADAR_FRAME_SIZE 2048
+#define RADAR_CHANNEL_SAMPLES (RADAR_FRAME_SIZE/2) //RADAR_FRAME_SIZE / 2 = number of samples per I or Q channels
 
-#define CODEC_SAMPLE_RATE_HZ 1000U
+#define RADAR_SAMPLE_RATE_HZ 1000U
 
-#define CODEC_ADC_RES 12
-#define CODEC_ADC_REF_VOLTAGE 3.3f
+#define RADAR_ADC_RES 12
+#define RADAR_ADC_REF_VOLTAGE 3.3f
 
 /******************************************************************************
  * Functions
  *****************************************************************************/
 
 /**
- * @brief Initializes the codec and prepares the audio buffers for streaming.
+ * @brief Initializes radar input and binds I/Q output buffers.
  *
- * This function initializes the GPIOs, including their alternate functions
- * for the SAI interface, and enables the corresponding clock sources for
- * the ports. It also links the provided left and right channel buffers
- * for audio input/output.
+ * This function initializes GPIO/ADC/DMA dependencies and links the
+ * provided I and Q channel sample buffers.
  *
- * @param left_channel_buffer Pointer to the buffer for the left audio channel.
- * @param right_channel_buffer Pointer to the buffer for the right audio channel.
- * @param size Number of samples in each channel buffer.
+ * @param i_channel_buffer Pointer to the I-channel sample buffer.
+ * @param q_channel_buffer Pointer to the Q-channel sample buffer.
+ * @param size Number of samples per channel buffer.
  *
  * @return HAL status code indicating the result of the initialization.
  *         - HAL_OK: Initialization successful.
  *         - HAL_ERROR: Initialization failed.
  *
- * @note Must be called before `codec_start()`.
+ * @note Must be called before `radar_input_start()`.
  */
-HAL_StatusTypeDef codec_init(float32_t *left_channel_buffer,
-                             float32_t *right_channel_buffer, uint32_t size);
+HAL_StatusTypeDef radar_input_init(float32_t *i_channel_buffer,
+                                   float32_t *q_channel_buffer, uint32_t size);
 
 /**
- * @brief Initializes and starts the SAI interface including DMA.
+ * @brief Starts timer-triggered radar acquisition.
  *
- * This function configures the Serial Audio Interface (SAI) and the
- * associated DMA channels, then starts the audio data transfer.
- * It also enables the DMA interrupt for data reception, ensuring that
- * incoming audio data is handled properly.
- *
- * The DMA for both reception and transmission is implemented as a
- * ping-pong buffer and operates in endless (cyclic) mode.
+ * This function enables ADCs and starts the timer trigger source.
+ * DMA runs in circular double-buffer mode and continuously fills
+ * I/Q sample frames.
  */
-void codec_start(void);
+void radar_input_start(void);
 
 /**
- * @brief Checks if new audio data is available from the codec.
+ * @brief Checks if a new radar I/Q frame is available.
  *
- * This function should be called to determine whether the codec has
- * completed a data transfer and new audio samples are ready for
- * processing or copying.
+ * This function should be polled from the main loop to determine whether
+ * DMA completed a full I/Q frame transfer.
  *
- * @return `true` if new audio data is available, `false` otherwise.
+ * @return `true` if a new radar frame is available, `false` otherwise.
  *
  * @note Typically called immediately after the DMA interrupt or in
- *       the audio processing loop to ensure timely handling of data.
+ *       the radar processing loop to ensure timely handling of data.
  */
-uint8_t codec_data_ready(void);
+uint8_t radar_input_frame_ready(void);
 
 /**
- * @brief Clears the data ready flag of the codec.
+ * @brief Clears the radar frame-ready flag.
  *
- * This function should be called after polling `codec_data_ready()` and
- * processing the available audio data. It resets the internal flag,
- * allowing the codec and DMA to signal the next set of audio samples.
+ * This function should be called after polling `radar_input_frame_ready()`
+ * and consuming the available I/Q frame.
  *
- * @note Typically used in the audio processing loop immediately after
+ * @note Typically used in the radar processing loop immediately after
  *       handling the data.
  */
-void codec_clear_data_ready(void);
+void radar_input_clear_frame_ready(void);
 
 #endif

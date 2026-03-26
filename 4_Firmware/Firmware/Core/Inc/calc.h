@@ -27,7 +27,7 @@
  * @brief Initializes the calculation module (FFT and FIR filter).
  *
  * This function sets up the fast real FFT (RFFT) instance using CMSIS-DSP
- * for the configured audio channel size and computes the scaling factor
+ * for the configured radar channel size and computes the scaling factor
  * required for converting FFT magnitudes into physical units.
 
  *
@@ -49,9 +49,9 @@ HAL_StatusTypeDef calc_init(void);
  * the previously computed FFT scaling factor.
  *
  * @param in  Pointer to the input buffer containing time-domain samples
- *            (size: AUDIO_CHANNEL_SIZE).
+ *            (size: RADAR_CHANNEL_SAMPLES).
  * @param out Pointer to the output buffer where the scaled magnitude
- *            spectrum is stored (size: AUDIO_CHANNEL_SIZE / 2).
+ *            spectrum is stored (size: RADAR_CHANNEL_SAMPLES / 2).
  *
  * @return HAL status code:
  *         - HAL_OK: Frequency spectrum calculation succeeded.
