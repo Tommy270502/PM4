@@ -56,16 +56,23 @@
 // Define time_signal_points based on RADAR_CHANNEL_SAMPLES, ensuring it's capped at MAX_TIME_SIGNAL_POINTS
 #define TIME_SIGNAL_POINTS (RADAR_CHANNEL_SAMPLES > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : RADAR_CHANNEL_SAMPLES)
 
+#define TIME_SIGNAL_MIN_SPAN     8.0f
+#define TIME_SIGNAL_HEADROOM     0.10f
+#define SPECTRUM_DISPLAY_HZ      10.0f
+#define SPECTRUM_MIN_DISPLAY_MAX 0.001f
+#define SPECTRUM_HEADROOM        1.15f
+
 
 /******************************************************************************
  * Variables
  *****************************************************************************/
 
+static float32_t radar_i_acquired[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_q_acquired[RADAR_CHANNEL_SAMPLES];
+
 static float32_t radar_i_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_q_samples[RADAR_CHANNEL_SAMPLES];
-
-static float32_t spectrum_i[RADAR_CHANNEL_SAMPLES / 2];
-static float32_t spectrum_q[RADAR_CHANNEL_SAMPLES / 2];
+static float32_t spectrum_shifted[RADAR_CHANNEL_SAMPLES];
 
 static uint32_t disp_loop_count[MENU_TOTAL_ENTRIES] = {0}; // Loop counters for refreshing display menus
 static bool disp_refresh;			///< Display should be refreshed
@@ -94,6 +101,11 @@ static uint32_t ekg_last_peak_tick = 0;
 static void SystemClock_Config(void);	///< System Clock Configuration
 static void gyro_disable(void);			///< Disable the onboard gyroscope
 static void error_handling(HAL_StatusTypeDef error);
+static void radar_copy_latest_frame(void);
+static void radar_get_time_scale(uint32_t count, float32_t *min_value,
+		float32_t *max_value);
+static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
+		float32_t *max_value);
 
 /** ***************************************************************************
  * @brief  Main function
@@ -132,7 +144,7 @@ int main(void) {
 
 	gyro_disable();					// Disable gyro, use those analog inputs
 
-	ret_val = radar_init(radar_i_samples, radar_q_samples, RADAR_CHANNEL_SAMPLES);
+	ret_val = radar_init(radar_i_acquired, radar_q_acquired, RADAR_CHANNEL_SAMPLES);
 	error_handling(ret_val);
 
 	radar_start();
@@ -223,7 +235,13 @@ int main(void) {
 		}
 
 		if (radar_frame_ready()) {
+			uint32_t primask = __get_PRIMASK();
+			__disable_irq();
 			radar_clear_frame_ready();
+			radar_copy_latest_frame();
+			if (primask == 0U) {
+				__enable_irq();
+			}
 			//BSP_LED_On(LED4);
 
 			if (efect_active) {
@@ -237,9 +255,7 @@ int main(void) {
 
 
 			// Use radar I/Q buffers for calculations.
-			ret_val = fft_freq(radar_i_samples, spectrum_i);
-			error_handling(ret_val);
-			ret_val = fft_freq(radar_q_samples, spectrum_q);
+			ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
 			error_handling(ret_val);
 			
 
@@ -261,25 +277,40 @@ int main(void) {
 				break;
 			case MENU_ONE:	// Time signal
 				if (disp_loop_count[MENU_ONE]++ >= DISP_LOOP_M1) {
+					float32_t signal_min;
+					float32_t signal_max;
 					disp_loop_count[MENU_ONE] = 0;
+					radar_get_time_scale(TIME_SIGNAL_POINTS, &signal_min, &signal_max);
 					disp_clear_data();
 					disp_curves(radar_i_samples, TIME_SIGNAL_POINTS,
-							0,
-							(1 << RADAR_ADC_RES) - 1,
+							signal_min,
+							signal_max,
 							LCD_COLOR_RED);
 					disp_curves(radar_q_samples, TIME_SIGNAL_POINTS,
-							0,
-							(1 << RADAR_ADC_RES) - 1,
+							signal_min,
+							signal_max,
 							LCD_COLOR_BLUE);
 				}
 				break;
 			case MENU_TWO: // Frequency spectrum
 				if (disp_loop_count[MENU_TWO]++ >= DISP_LOOP_M2) {
+					uint32_t spectrum_start;
+					uint32_t spectrum_count;
+					float32_t spectrum_max;
 					disp_loop_count[MENU_TWO] = 0;
+					radar_get_spectrum_window(&spectrum_start, &spectrum_count, &spectrum_max);
 					disp_clear_data();
-					// Note: x axis is in bins, not in Hz
-					disp_curves(spectrum_i, RADAR_CHANNEL_SAMPLES / 2, 0, 0.05, LCD_COLOR_RED);
-					disp_curves(spectrum_q, RADAR_CHANNEL_SAMPLES / 2, 0, 0.05, LCD_COLOR_BLUE);
+					BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
+					BSP_LCD_DrawLine(DISP_WIDTH / 2U, 0U, DISP_WIDTH / 2U, DISP_HEIGHT - 1U);
+					disp_curves(&spectrum_shifted[spectrum_start], spectrum_count, 0.0f,
+							spectrum_max, LCD_COLOR_BLUE);
+					BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+					BSP_LCD_SetFont(&Font12);
+					BSP_LCD_DisplayStringAt(2, 2, (uint8_t*) "-10 Hz", LEFT_MODE);
+					BSP_LCD_DisplayStringAt(0, 2, (uint8_t*) "0 Hz", CENTER_MODE);
+					BSP_LCD_DisplayStringAt(DISP_WIDTH - 48U, 2, (uint8_t*) "+10 Hz",
+							LEFT_MODE);
 				}
 				break;
 			case MENU_THREE:	// Effect Menu (Filter Selection)
@@ -373,6 +404,96 @@ int main(void) {
 		}
 
 	}
+}
+
+static void radar_copy_latest_frame(void) {
+	for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++) {
+		radar_i_samples[i] = radar_i_acquired[i];
+		radar_q_samples[i] = radar_q_acquired[i];
+	}
+}
+
+static void radar_get_time_scale(uint32_t count, float32_t *min_value,
+		float32_t *max_value) {
+	float32_t min_sample;
+	float32_t max_sample;
+	float32_t span;
+	float32_t center;
+	float32_t headroom;
+
+	if ((min_value == 0) || (max_value == 0) || (count == 0U)) {
+		return;
+	}
+
+	if (count > RADAR_CHANNEL_SAMPLES) {
+		count = RADAR_CHANNEL_SAMPLES;
+	}
+
+	min_sample = radar_i_samples[0];
+	max_sample = radar_i_samples[0];
+
+	for (uint32_t i = 0; i < count; i++) {
+		if (radar_i_samples[i] < min_sample) {
+			min_sample = radar_i_samples[i];
+		}
+		if (radar_i_samples[i] > max_sample) {
+			max_sample = radar_i_samples[i];
+		}
+		if (radar_q_samples[i] < min_sample) {
+			min_sample = radar_q_samples[i];
+		}
+		if (radar_q_samples[i] > max_sample) {
+			max_sample = radar_q_samples[i];
+		}
+	}
+
+	span = max_sample - min_sample;
+	if (span < TIME_SIGNAL_MIN_SPAN) {
+		span = TIME_SIGNAL_MIN_SPAN;
+	}
+
+	center = 0.5f * (max_sample + min_sample);
+	headroom = span * TIME_SIGNAL_HEADROOM;
+
+	*min_value = center - (0.5f * span) - headroom;
+	*max_value = center + (0.5f * span) + headroom;
+}
+
+static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
+		float32_t *max_value) {
+	uint32_t half_bins;
+	uint32_t local_start;
+	uint32_t local_count;
+	float32_t bin_hz;
+	float32_t peak = 0.0f;
+
+	if ((start_index == 0) || (count == 0) || (max_value == 0)) {
+		return;
+	}
+
+	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
+	half_bins = (uint32_t) ((SPECTRUM_DISPLAY_HZ / bin_hz) + 0.5f);
+	if (half_bins >= (RADAR_CHANNEL_SAMPLES / 2U)) {
+		half_bins = (RADAR_CHANNEL_SAMPLES / 2U) - 1U;
+	}
+
+	local_start = (RADAR_CHANNEL_SAMPLES / 2U) - half_bins;
+	local_count = (2U * half_bins) + 1U;
+
+	for (uint32_t i = 0; i < local_count; i++) {
+		float32_t value = spectrum_shifted[local_start + i];
+		if (value > peak) {
+			peak = value;
+		}
+	}
+
+	if (peak < SPECTRUM_MIN_DISPLAY_MAX) {
+		peak = SPECTRUM_MIN_DISPLAY_MAX;
+	}
+
+	*start_index = local_start;
+	*count = local_count;
+	*max_value = peak * SPECTRUM_HEADROOM;
 }
 
 /** ***************************************************************************

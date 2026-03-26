@@ -23,10 +23,16 @@
 /******************************************************************************
  * Defines
  *****************************************************************************/
-#define RADAR_FRAME_SIZE 2048
-#define RADAR_CHANNEL_SAMPLES (RADAR_FRAME_SIZE/2) //RADAR_FRAME_SIZE / 2 = number of samples per I or Q channels
+#define RADAR_FRAME_SIZE 512U
+#define RADAR_CHANNEL_SAMPLES (RADAR_FRAME_SIZE / 2U) /* One packed DMA word contains one I/Q sample pair. */
 
-#define RADAR_SAMPLE_RATE_HZ 1000U
+/*
+ * Low-frequency vital-sign radar:
+ * - fs = 100 Hz comfortably covers content up to 5 Hz
+ * - 256 samples/channel give a fresh frame every 2.56 s
+ * - FFT bin spacing is 100 / 256 = 0.390625 Hz
+ */
+#define RADAR_SAMPLE_RATE_HZ 100U
 
 #define RADAR_ADC_RES 12
 #define RADAR_ADC_REF_VOLTAGE 3.3f
