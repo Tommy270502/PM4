@@ -75,13 +75,6 @@ void codec_clear_data_ready(void)
     audio_codec_data_ready = 0;
 }
 
-void codec_update_output_buffer(uint8_t channel, float32_t *data, uint32_t size)
-{
-    (void)channel;
-    (void)data;
-    (void)size;
-}
-
 static void timer2_init_100hz(void)
 {
     __HAL_RCC_TIM2_CLK_ENABLE();

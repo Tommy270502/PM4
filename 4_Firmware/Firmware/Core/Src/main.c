@@ -241,10 +241,6 @@ int main(void) {
 				biquad_process_buffer(&fxR[current_filter_index], right_channel_samples, AUDIO_CHANNEL_SIZE);
 			}
 
-			// Update codec output buffer with processed audio samples
-			codec_update_output_buffer(0, left_channel_samples, AUDIO_CHANNEL_SIZE);
-			codec_update_output_buffer(1, right_channel_samples, AUDIO_CHANNEL_SIZE);
-
 
 			// Use the audio data in left_channel_samples and right_channel_samples for the different calculations.
 			ret_val = calc_freq(left_channel_samples, spectrum_left);
