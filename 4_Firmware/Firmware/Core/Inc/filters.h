@@ -1,10 +1,10 @@
 /**
  * @file filters.h
- * @brief Simple biquad IIR audio filters for float32 sample buffers.
+ * @brief Simple biquad IIR filters for float32 sample buffers.
  *
  * Filter coefficient formulas are from the RBJ "Audio EQ Cookbook".
- * This is a good default for embedded audio because it is stable,
- * low-CPU, and easy to parameterize.
+ * This implementation is stable, low-CPU, and easy to parameterize
+ * for embedded signal processing.
  */
 
 #ifndef FILTERS_H_

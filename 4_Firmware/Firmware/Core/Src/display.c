@@ -225,12 +225,12 @@ void disp_light_bars(float32_t avgs[], float32_t peaks[])
 }
 
 /** ***************************************************************************
- * @brief Display Audio Level Meter
+ * @brief Display channel level meter
  *
- * @param[in] avg_l  average left channel
- * @param[in] peak_l peak left channel
- * @param[in] avg_r  average right channel
- * @param[in] peak_r peak right channel
+ * @param[in] avg_l  average I channel
+ * @param[in] peak_l peak I channel
+ * @param[in] avg_r  average Q channel
+ * @param[in] peak_r peak Q channel
  *****************************************************************************/
 void disp_level(float32_t avg_l, float32_t peak_l, float32_t avg_r,
              float32_t peak_r)
@@ -321,8 +321,8 @@ void disp_info(void)
     BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
     BSP_LCD_SetFont(&Font20);
-    BSP_LCD_DisplayStringAt(5, 10, (uint8_t*) "Audio Processing", LEFT_MODE);
-    BSP_LCD_DisplayStringAt(5, 30, (uint8_t*) "Ambient Light", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(5, 10, (uint8_t*) "Radar Processing", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(5, 30, (uint8_t*) "Heart-Rate Monitor", LEFT_MODE);
     BSP_LCD_SetFont(&Font16);
     BSP_LCD_DisplayStringAt(5, 60, (uint8_t*) "--------------------", LEFT_MODE);
     BSP_LCD_DisplayStringAt(5, 80, (uint8_t*) "Authors:", LEFT_MODE);

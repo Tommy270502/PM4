@@ -1,9 +1,6 @@
 /**
  * @file    audio_codec.c
- * @brief   Compatibility acquisition API now backed by radar ADC I/Q capture.
- *
- * Public API names are intentionally kept so the existing main loop can be
- * migrated in small steps.
+ * @brief   Radar ADC I/Q acquisition implementation.
  */
 
 #include "audio_codec.h"

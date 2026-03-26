@@ -1,6 +1,6 @@
 /**
  * @file filters.c
- * @brief Simple biquad IIR audio filters for float32 sample buffers.
+ * @brief Simple biquad IIR filters for float32 sample buffers.
  */
 
 #include "filters.h"
