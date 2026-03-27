@@ -83,6 +83,8 @@ LCD_COLOR_BLACK, LCD_COLOR_LIGHTGREEN },
 { "RMS", "Level",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTBLUE },
 { "EKG", "BPM",
+LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED },
+{ "DAC", "PA5",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED } };		///< All the menu entries
 
 /******************************************************************************

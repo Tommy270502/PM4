@@ -29,6 +29,7 @@
 #include "pushbutton.h"
 #include "menu.h"
 
+#include "dac_output.h"
 #include "fft.h"
 #include "display.h"
 #include "radar.h"
@@ -49,6 +50,7 @@
 #define DISP_LOOP_M7 	4	// ...
 #define DISP_LOOP_M8 	4	// ...
 #define DISP_LOOP_M9 	4	// EKG BPM
+#define DISP_LOOP_M10 	4	// DAC output
 
 // Define the maximum number of points for the time signal (Display 240 x 320 pixels)
 #define MAX_TIME_SIGNAL_POINTS 240
@@ -61,6 +63,16 @@
 #define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_MIN_DISPLAY_MAX 0.001f
 #define SPECTRUM_HEADROOM        1.15f
+#define DAC_TOUCH_STEP_VOLTAGE   0.1f
+#define DAC_SLIDER_X             20U
+#define DAC_SLIDER_Y             120U
+#define DAC_SLIDER_WIDTH         200U
+#define DAC_SLIDER_HEIGHT        24U
+#define DAC_BUTTON_Y             185U
+#define DAC_BUTTON_WIDTH         85U
+#define DAC_BUTTON_HEIGHT        44U
+#define DAC_MINUS_X              20U
+#define DAC_PLUS_X               135U
 
 
 /******************************************************************************
@@ -97,6 +109,7 @@ static const char* filter_names[] = {
 
 static ekg_output_t ekg_latest = {0};
 static uint32_t ekg_last_peak_tick = 0;
+static bool dac_touch_was_detected = false;
 
 /******************************************************************************
  * Functions
@@ -111,6 +124,12 @@ static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t
 		float32_t *max_value);
 static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 		float32_t *max_value);
+static void touch_get_adjusted_state(TS_StateTypeDef *touch_state);
+static bool touch_is_inside_rect(uint16_t x, uint16_t y, uint16_t rect_x,
+		uint16_t rect_y, uint16_t rect_width, uint16_t rect_height);
+static void dac_output_step(float delta_voltage);
+static bool dac_output_handle_touch(void);
+static void disp_dac_output(void);
 
 /** ***************************************************************************
  * @brief  Main function
@@ -148,6 +167,7 @@ int main(void) {
 	disp_info();						// Show info menu at startup
 
 	gyro_disable();					// Disable gyro, use those analog inputs
+	dac_output_init();				// DAC output on PA5 (DAC channel 2)
 
 	ret_val = radar_init(radar_i_acquired, radar_q_acquired, RADAR_FRAME_ADVANCE_SAMPLES);
 	error_handling(ret_val);
@@ -188,7 +208,8 @@ int main(void) {
 
 		/* Comment next line if touchscreen interrupt is enabled */
 		MENU_check_transition();
-		switch (MENU_get_transition()) {	// Handle user menu transitions
+		MENU_item_t menu_transition = MENU_get_transition();
+		switch (menu_transition) {	// Handle user menu transitions
 		case MENU_NONE:	// No transition => do nothing
 			break;
 		case MENU_SCROLL_LEFT:	// Scroll menu left
@@ -207,10 +228,14 @@ int main(void) {
 		case MENU_SEVEN:
 		case MENU_EIGHT:
 		case MENU_NINE:
+		case MENU_TEN:
 			disp_refresh = true;	// Switch to new menu item
 			break;
 		default:	// Should never occur
 			break;
+		}
+		if (menu_transition == MENU_TEN) {
+			disp_loop_count[MENU_TEN] = DISP_LOOP_M10;
 		}
 
 		if (PB_pressed()) {				// Check if user pushbutton was pressed
@@ -239,6 +264,11 @@ int main(void) {
 			if (MENU_get_active() == MENU_NINE) {
 				disp_refresh = true;
 			}
+		}
+
+		if ((MENU_get_active() == MENU_TEN) && dac_output_handle_touch()) {
+			disp_refresh = true;
+			disp_loop_count[MENU_TEN] = DISP_LOOP_M10;
 		}
 
 		if (radar_frame_ready()) {
@@ -397,6 +427,13 @@ int main(void) {
 					BSP_LCD_DisplayStringAt(0, 210, (uint8_t*) text, CENTER_MODE);
 				}
 				break;
+			case MENU_TEN:	// DAC output on PA5
+				if (disp_loop_count[MENU_TEN]++ >= DISP_LOOP_M10) {
+					disp_loop_count[MENU_TEN] = 0;
+					disp_clear_data();
+					disp_dac_output();
+				}
+				break;
 			default:
 				// Should never occur
 				break;
@@ -545,6 +582,134 @@ static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 	*start_index = local_start;
 	*count = local_count;
 	*max_value = peak * SPECTRUM_HEADROOM;
+}
+
+static void touch_get_adjusted_state(TS_StateTypeDef *touch_state)
+{
+	if (touch_state == 0) {
+		return;
+	}
+
+	BSP_TS_GetState(touch_state);
+
+#ifdef EVAL_REV_E
+	touch_state->Y = BSP_LCD_GetYSize() - touch_state->Y;
+#endif
+#ifdef FLIPPED_LCD
+	touch_state->X = BSP_LCD_GetXSize() - touch_state->X;
+	touch_state->Y = BSP_LCD_GetYSize() - touch_state->Y;
+#endif
+}
+
+static bool touch_is_inside_rect(uint16_t x, uint16_t y, uint16_t rect_x,
+		uint16_t rect_y, uint16_t rect_width, uint16_t rect_height)
+{
+	return (x >= rect_x) && (x < (rect_x + rect_width)) && (y >= rect_y)
+			&& (y < (rect_y + rect_height));
+}
+
+static void dac_output_step(float delta_voltage)
+{
+	dac_output_set_voltage(dac_output_get_voltage() + delta_voltage);
+}
+
+static bool dac_output_handle_touch(void)
+{
+	TS_StateTypeDef touch_state;
+	bool touch_just_pressed;
+	uint16_t touch_x;
+	uint16_t touch_y;
+	uint16_t old_code = dac_output_get_code();
+
+	touch_get_adjusted_state(&touch_state);
+	touch_just_pressed = (!dac_touch_was_detected && touch_state.TouchDetected);
+	dac_touch_was_detected = touch_state.TouchDetected;
+
+	if (!touch_state.TouchDetected) {
+		return false;
+	}
+
+	touch_x = touch_state.X;
+	touch_y = touch_state.Y;
+
+	if (touch_y >= DISP_HEIGHT) {
+		return false;
+	}
+
+	if (touch_is_inside_rect(touch_x, touch_y, DAC_SLIDER_X, DAC_SLIDER_Y,
+			DAC_SLIDER_WIDTH, DAC_SLIDER_HEIGHT)) {
+		float voltage = ((float) (touch_x - DAC_SLIDER_X)
+				/ (float) (DAC_SLIDER_WIDTH - 1U)) * DAC_OUTPUT_MAX_VOLTAGE;
+		dac_output_set_voltage(voltage);
+	} else if (touch_just_pressed
+			&& touch_is_inside_rect(touch_x, touch_y, DAC_MINUS_X, DAC_BUTTON_Y,
+					DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT)) {
+		dac_output_step(-DAC_TOUCH_STEP_VOLTAGE);
+	} else if (touch_just_pressed
+			&& touch_is_inside_rect(touch_x, touch_y, DAC_PLUS_X, DAC_BUTTON_Y,
+					DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT)) {
+		dac_output_step(DAC_TOUCH_STEP_VOLTAGE);
+	}
+
+	return (old_code != dac_output_get_code());
+}
+
+static void disp_dac_output(void)
+{
+	char text[32];
+	uint32_t millivolts = (uint32_t) ((dac_output_get_voltage() * 1000.0f) + 0.5f);
+	uint16_t code = dac_output_get_code();
+	uint32_t fill_width = ((uint32_t) code * DAC_SLIDER_WIDTH) / DAC_OUTPUT_MAX_CODE;
+	uint32_t marker_x = DAC_SLIDER_X
+			+ (((uint32_t) code * (DAC_SLIDER_WIDTH - 1U)) / DAC_OUTPUT_MAX_CODE);
+
+	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+
+	BSP_LCD_SetFont(&Font20);
+	BSP_LCD_DisplayStringAt(0, 12, (uint8_t*) "DAC Output PA5", CENTER_MODE);
+
+	BSP_LCD_SetFont(&Font24);
+	snprintf(text, sizeof(text), "%lu.%03lu V",
+			(unsigned long) (millivolts / 1000U),
+			(unsigned long) (millivolts % 1000U));
+	BSP_LCD_DisplayStringAt(0, 48, (uint8_t*) text, CENTER_MODE);
+
+	BSP_LCD_SetFont(&Font16);
+	snprintf(text, sizeof(text), "Code: %4u / %u", code, DAC_OUTPUT_MAX_CODE);
+	BSP_LCD_DisplayStringAt(0, 84, (uint8_t*) text, CENTER_MODE);
+
+	BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
+	BSP_LCD_FillRect(DAC_SLIDER_X, DAC_SLIDER_Y, DAC_SLIDER_WIDTH, DAC_SLIDER_HEIGHT);
+	if (fill_width > 0U) {
+		BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGREEN);
+		BSP_LCD_FillRect(DAC_SLIDER_X, DAC_SLIDER_Y, fill_width, DAC_SLIDER_HEIGHT);
+	}
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	BSP_LCD_DrawRect(DAC_SLIDER_X, DAC_SLIDER_Y, DAC_SLIDER_WIDTH, DAC_SLIDER_HEIGHT);
+	BSP_LCD_DrawVLine((uint16_t) marker_x, DAC_SLIDER_Y - 6U, DAC_SLIDER_HEIGHT + 12U);
+	BSP_LCD_SetFont(&Font12);
+	BSP_LCD_DisplayStringAt(DAC_SLIDER_X, DAC_SLIDER_Y + DAC_SLIDER_HEIGHT + 10U,
+			(uint8_t*) "0.0V", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(DAC_SLIDER_X + DAC_SLIDER_WIDTH - 34U,
+			DAC_SLIDER_Y + DAC_SLIDER_HEIGHT + 10U, (uint8_t*) "3.3V", LEFT_MODE);
+
+	BSP_LCD_SetTextColor(LCD_COLOR_LIGHTBLUE);
+	BSP_LCD_FillRect(DAC_MINUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
+	BSP_LCD_FillRect(DAC_PLUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	BSP_LCD_DrawRect(DAC_MINUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
+	BSP_LCD_DrawRect(DAC_PLUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
+	BSP_LCD_SetBackColor(LCD_COLOR_LIGHTBLUE);
+	BSP_LCD_SetFont(&Font24);
+	BSP_LCD_DisplayStringAt(DAC_MINUS_X + 26U, DAC_BUTTON_Y + 8U, (uint8_t*) "-",
+			LEFT_MODE);
+	BSP_LCD_DisplayStringAt(DAC_PLUS_X + 28U, DAC_BUTTON_Y + 8U, (uint8_t*) "+",
+			LEFT_MODE);
+
+	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+	BSP_LCD_SetFont(&Font16);
+	BSP_LCD_DisplayStringAt(0, 244, (uint8_t*) "Tap bar or +/- 0.1 V", CENTER_MODE);
 }
 
 /** ***************************************************************************
