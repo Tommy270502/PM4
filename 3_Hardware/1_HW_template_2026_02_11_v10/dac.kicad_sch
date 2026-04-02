@@ -648,6 +648,17 @@
 		)
 		(uuid "01435482-5f23-4b42-ac56-47127cb98984")
 	)
+	(text "correction: 1k"
+		(exclude_from_sim no)
+		(at 148.082 101.854 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+		)
+		(uuid "9dc86092-c757-487f-a13b-e27e74c5b1ac")
+	)
 	(text "tau = R*C = 10ms\nfg = ~ 16 Hz"
 		(exclude_from_sim no)
 		(at 113.538 93.218 0)
