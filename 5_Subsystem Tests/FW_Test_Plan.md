@@ -29,7 +29,7 @@
 ## Test Plan
 
 | ID | Test description | Input signals / setup | Expected result | Measured result | Verdict | Remarks |
-| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- | ------- | ------- |
+| - | - | - | - | - | - | - |
 | FW-01 | **Baseline DC / zero-frequency sanity** | Apply **I = 1.5 V DC**, **Q = 1.5 V DC**. | Spectrum shows only DC / near-0 content. No stable discrete peaks away from 0 Hz in the displayed band. Numerical peak readout is **0 Hz or nearest displayed bin around 0 Hz**. No clipping, no stable spurious mirrored peaks, and stable behavior. | ... | ... | ... |
 | FW-02 | **Signed frequency, positive, low band** | Apply $I(t) = 1.5 \text{ V} + (A/2) \cdot \cos(2πft)$, $Q(t) = 1.5 \text{ V} + (A/2) \cdot \sin(2πft)$ with **f = 0.391 Hz**. Run once at **A = 50 mVpp** and once at **A = 3.0 Vpp**. | Dominant spectral peak is at **+0.391 Hz ± 1 bin**. The negative-frequency side does not become dominant. Spectrum and numerical peak readout are stable. | ... | ... | ... |
 | FW-03 | **Signed frequency, positive, mid band** | Same as FW-02, with **f = 1.172 Hz**. Run at **A = 50 mVpp** and **A = 3.0 Vpp**. | Dominant peak at **+1.172 Hz ± 1 bin**. No sign inversion. Spectrum and numerical peak readout are stable. | ... | ... | ... |
