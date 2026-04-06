@@ -1,22 +1,24 @@
 # HW Subsystem Test Plan
 
-## 1. Power Supply and Reference Voltage
+## 1. Power Supply, Reference Voltage and VCO Modulation Path
 
 ### 1.1 Test parameters
-- Scope: power supply and reference voltage circuits
+- Scope: power supply, reference voltage circuits, and optional VCO modulation input path
 - Nominal PCB supply voltage: 5 V
 - Nominal on-board regulated voltage: 3.3 V
 - Nominal radar reference voltage: 1.65 V
 
 ### 1.2 Acceptance criteria
 - Supply/reference checks pass if measured values are within their stated tolerances and remain stable without abnormal ripple or oscillation
+- VCO modulation path checks pass if the output follows the applied input stimulus with the expected gain within the stated tolerance and without visible instability or distortion
 
 ### 1.3 Test plan
 
 | ID | Test description | Input signals / setup | Expected result | Measured result | Verdict | Remarks |
 | - | - | - | - | - | - | - |
-| HW-1.01 | **3.3 V on-board regulated voltage** | Power the PCB under nominal operating conditions. | On-board regulated voltage = **3.3 V ± [TBD]** and stable, no abnormal ripple/oscillation. | ... | ... | ... |
-| HW-1.02 | **Radar reference voltage** | Power the PCB under nominal operating conditions. | Reference voltage = **1.65 V ± [TBD]** and stable. | ... | ... | ... |
+| HW-1.01 | **3.3 V on-board regulated voltage** | Power the PCB under nominal operating conditions. | On-board regulated voltage = **3.3 V ± [TBD]** and stable, no abnormal ripple/oscillation. | 3.2998 V | <span style="color:green;">**passed**</span> | --- |
+| HW-1.02 | **Radar reference voltage** | Power the PCB under nominal operating conditions. | Reference voltage = **1.65 V ± [TBD]** and stable. | 1.6470 V | <span style="color:green;">**passed**</span> | --- |
+| HW-1.03 | **VCO_in DC transfer check** | Apply a constant **1 V DC** level to the **VCO_in** path. | Output at VCO_in pin equals **1.1 V DC ± [TBD]** and is stable, with no abnormal oscillation. | 1.1056 V | <span style="color:green;">**passed**</span> | --- |
 
 ## 2. I/Q Channel Tests
 
