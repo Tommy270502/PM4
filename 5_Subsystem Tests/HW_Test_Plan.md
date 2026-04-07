@@ -60,13 +60,28 @@
 | HW-2.11 | **I/Q channel matching in passband** | Apply the same sine signal simultaneously to **both I and Q inputs**. Frequencies: **0.5, 1, 2, 5, 10 Hz**. Run once at **50 µVpp** and once at **250 µVpp**. | **I/Q gain difference ≤ [TBD]** and **I/Q phase difference ≤ [TBD]** across the passband at both amplitudes. Both outputs remain centered around **1.5 V DC**. | ... | ... | ... |
 | HW-2.12 | **Crosstalk / channel isolation check** | Drive one channel at a time with sine while keeping the other channel input grounded (I active / Q grounded, then Q active / I grounded). Frequencies: **0.5, 1, 2, 5, 10 Hz**. Run once at **50 µVpp** and once at **250 µVpp**. | The inactive grounded path remains centered around **1.5 V DC** and any coupled signal remains below **[TBD]** at all test frequencies and amplitudes. | ... | ... | ... |
 
-## 3. Radar-Connected Tests (Placeholder)
+## 3. Radar-Connected Tests
 
 ### 3.1 Test parameters
-- [TBD]
+- Scope: end-to-end verification of the connected K-LC5 radar module together with the I/Q analog paths
+- Radar target simulator: RFbeam K-DT1
+- Recommended minimum-speed setting for this section: 1 km/h (lowest available K-DT1 Doppler frequency)
+- K-DT1 adjustable parameters relevant for this section: speed, direction, signal amplitude / reach, and signal duration
+- Recommended mechanical setup: fix both K-DT1 and sensor board mechanically, align K-DT1 toward the radar sensor, keep spacing ≥ 30 cm, and minimize nearby parasitic reflections
+- Intended final output operating range at the external amplifier outputs: 0...3 V
+- Nominal analog-path DC operating point before ADC: 1.5 V
 
 ### 3.2 Acceptance criteria
-- [TBD]
+- Radar-connected basic-response checks pass if activation of K-DT1 produces stable observable periodic signals on both I and Q outputs at the expected Doppler frequency, centered around 1.5 V DC, without clipping or instability
+- Radar-connected direction checks pass if changing the K-DT1 movement direction reverses the relative I/Q phase order while keeping the Doppler frequency consistent
+- Radar-connected reach / amplitude sanity checks pass if increasing the K-DT1 signal amplitude / reach increases the observed AC output amplitude correspondingly, while outputs remain within the intended 0...3 V range
+
+*Note:* Since the minimum available K-DT1 Doppler frequency (44 Hz) lies above the intended analog passband, this section is treated as an integration and functionality check rather than a strict nominal-band amplitude verification
 
 ### 3.3 Test plan
-- Placeholder intentionally left empty. Define radar-connected verification cases and IDs in the **HW-3.xx** series.
+
+| ID | Test description | Input signals / setup | Expected result | Measured result | Verdict | Remarks |
+| - | - | - | - | - | - | - |
+| HW-3.01 | **Radar-connected basic response** | Place **K-DT1** in front of the radar sensor in a fixed aligned setup with spacing **≥ 30 cm**. Set K-DT1 to **1 km/h**, one fixed direction, and one representative reach setting (recommended: start with **100%**, reduce only if clipping occurs). | Both **I** and **Q** outputs show stable observable periodic signals at approx. **44 Hz**, centered around **1.5 V DC**. Both channels remain within **0...3 V** and show no clipping or instability. | ... | ... | ... |
+| HW-3.02 | **Radar-connected direction check** | Use the same fixed setup as in **HW-3.01**. Keep speed at **1 km/h** and the same reach setting. Run once with **forward** direction and once with **backward** direction on K-DT1. | In both cases, observable signals remain present on **I** and **Q** at approx. **44 Hz**, centered around **1.5 V DC**. Reversing K-DT1 direction reverses the relative **I/Q** phase order. No clipping or instability. | ... | ... | ... |
+| HW-3.03 | **Radar-connected reach / amplitude sanity check** | Use the same fixed setup as in **HW-3.01**. Keep speed at **1 km/h** and one fixed direction. Compare at least two K-DT1 reach settings, for example **low** and **high** (e.g. **20%** and **100%**). | Higher K-DT1 reach produces a correspondingly larger observed AC amplitude on both outputs. Outputs remain centered around **1.5 V DC**, stay within **0...3 V**, and show no clipping or instability. | ... | ... | ... |
