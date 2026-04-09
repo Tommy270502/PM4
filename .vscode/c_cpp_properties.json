@@ -1,0 +1,51 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "STM32F429 Firmware",
+      "cStandard": "gnu11",
+      "cppStandard": "gnu++17",
+      "defines": [
+        "USE_HAL_DRIVER",
+        "DEBUG",
+        "STM32F429xx",
+        "ARM_MATH_CM4"
+      ],
+      "compilerArgs": [
+        "-mcpu=cortex-m4",
+        "-mthumb",
+        "-mfpu=fpv4-sp-d16",
+        "-mfloat-abi=hard"
+      ],
+      "includePath": [
+        "${workspaceFolder}/4_Firmware/Firmware/Core/Inc",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/CMSIS/Include",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/STM32F4xx_HAL_Driver/Inc",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/Components/Common",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/Components/stmpe811",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/Components/ili9341",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/STM32F429I-Discovery",
+        "${workspaceFolder}/4_Firmware/Firmware/Utilities/Fonts",
+        "${workspaceFolder}/4_Firmware/Firmware/Drivers/CMSIS/DSP/Include"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}/4_Firmware/Firmware/Core/Inc",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/CMSIS/Include",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/STM32F4xx_HAL_Driver/Inc",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/Components/Common",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/Components/stmpe811",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/Components/ili9341",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/BSP/STM32F429I-Discovery",
+          "${workspaceFolder}/4_Firmware/Firmware/Utilities/Fonts",
+          "${workspaceFolder}/4_Firmware/Firmware/Drivers/CMSIS/DSP/Include"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    }
+  ]
+}
