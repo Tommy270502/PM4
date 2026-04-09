@@ -1,6 +1,6 @@
 /** ***************************************************************************
  * @file
- * @brief See display.c
+ * @brief Display primitives and menu rendering API.
  *
  * Prefixes DISP
  *
@@ -28,6 +28,9 @@
 /******************************************************************************
  * Variables
  *****************************************************************************/
+/**
+ * @brief Snapshot of model/controller data required to render menu pages.
+ */
 typedef struct {
 	const float32_t *radar_i_samples;
 	const float32_t *radar_q_samples;
@@ -51,7 +54,13 @@ void disp_curves(float32_t data[], uint32_t count, float32_t min, float32_t max,
 void disp_bars(float32_t data[], uint32_t count, float32_t min, float32_t max, uint32_t color);
 void disp_level(float32_t avg_l, float32_t peak_l, float32_t avg_r, float32_t peak_r);
 void disp_info(void);
+/**
+ * @brief Force one menu page to redraw on next disp_menu_render call.
+ */
 void disp_menu_force_refresh(MENU_item_t menu_item);
+/**
+ * @brief Render active menu page with internal refresh throttling.
+ */
 void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data);
 
 #endif

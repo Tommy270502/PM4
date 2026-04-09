@@ -1,6 +1,6 @@
 /**
  * @file    radar.c
- * @brief   Radar ADC I/Q acquisition implementation.
+ * @brief   Radar acquisition backend and processing helper implementation.
  */
 
 #include "radar.h"
@@ -83,6 +83,7 @@ bool radar_append_latest_chunk(float32_t *i_history, float32_t *q_history,
                                const float32_t *i_acquired, const float32_t *q_acquired,
                                uint32_t *window_fill_samples)
 {
+    /* Shift rolling history by half-window and append newest chunk at the end. */
     uint32_t history_keep;
 
     if ((i_history == 0) || (q_history == 0) || (i_acquired == 0) || (q_acquired == 0)
@@ -124,6 +125,7 @@ void radar_prepare_processing_window(float32_t *i_samples, float32_t *q_samples,
                                      const biquad_df2t_t *filter_r_bank,
                                      uint8_t filter_index)
 {
+    /* Copy history to processing buffers, then optionally apply current filter. */
     if ((i_samples == 0) || (q_samples == 0) || (i_history == 0) || (q_history == 0))
     {
         return;
@@ -372,6 +374,7 @@ static bool radar_get_spectrum_bin_window(float32_t display_hz,
                                           uint32_t *start_bin,
                                           uint32_t *end_bin)
 {
+    /* Build a symmetric frequency window around DC (shifted spectrum center). */
     uint32_t local_center = RADAR_CHANNEL_SAMPLES / 2U;
     uint32_t half_bins;
     float32_t bin_hz;

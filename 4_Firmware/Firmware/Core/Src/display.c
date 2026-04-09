@@ -1,6 +1,6 @@
 /** ***************************************************************************
  * @file
- * @brief Displays curves and spectrograms
+ * @brief Display primitives and menu-page renderer.
  *
  * @warning Drawing outside of the display crashes the system!
  *
@@ -302,6 +302,12 @@ void disp_info(void)
     BSP_LCD_DisplayStringAt(5, 200, (uint8_t*) "Version 26.03.2026", LEFT_MODE);
 }
 
+/** ***************************************************************************
+ * @brief Force immediate refresh for one menu page.
+ *
+ * Sets the internal per-menu loop counter to its refresh limit so the next
+ * call to disp_menu_render() redraws that page immediately.
+ *****************************************************************************/
 void disp_menu_force_refresh(MENU_item_t menu_item)
 {
     if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_TEN))
@@ -310,6 +316,12 @@ void disp_menu_force_refresh(MENU_item_t menu_item)
     }
 }
 
+/** ***************************************************************************
+ * @brief Render currently active menu page with internal refresh throttling.
+ *
+ * The function owns per-menu pacing and draws only when the corresponding
+ * loop counter reaches its configured limit.
+ *****************************************************************************/
 void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
 {
     if (data == 0)

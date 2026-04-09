@@ -135,8 +135,8 @@ int main(void) {
 	PB_init();							// Initialize the user pushbutton
 	PB_enableIRQ();					// Enable interrupt on user pushbutton
 
-	BSP_LED_Init(LED3);					// Toggles in while loop
-	BSP_LED_Init(LED4);					// Is toggled by user button
+	BSP_LED_Init(LED3);					// Available as general status LED
+	BSP_LED_Init(LED4);					// Toggled in radar DMA IRQ (new frame ready)
 
 	MENU_draw();						// Draw the menu
 	disp_info();						// Show info menu at startup
@@ -170,7 +170,7 @@ int main(void) {
 		biquad_reset(&fxR[i]);
 	}
 	
-	// Set initial effect state (active for LOWPASS)
+	// Start in bypass mode because current_filter_index defaults to FILTER_BYPASS.
 	effect_active = (current_filter_index != FILTER_BYPASS);
 
 	ret_val = fft_init();
@@ -307,6 +307,11 @@ int main(void) {
 	}
 }
 
+/** ***************************************************************************
+ * @brief Request a display update.
+ * @param menu_item Menu entry to force immediately when requested.
+ * @param immediate true = force renderer counter to update now, false = normal pacing.
+ *****************************************************************************/
 static void menu_request_refresh(MENU_item_t menu_item, bool immediate) {
 	disp_refresh = true;
 

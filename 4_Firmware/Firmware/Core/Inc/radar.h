@@ -3,12 +3,15 @@
  * @author  Patrick Rennhard (renn@zhaw.ch)
  * @date    2025-09-24
  * @version 1.0
- * @brief   Radar I/Q acquisition API using ADC dual-mode and DMA.
+ * @brief   Radar acquisition and processing helper API.
  *
  * This module captures radar I/Q samples from:
  * - PC1 (I) via ADC1
  * - PC3 (Q) via ADC2
  * using timer-triggered simultaneous sampling and DMA ping-pong buffers.
+ *
+ * It also provides model-side helper functions for rolling-window updates,
+ * preprocessing, and display-oriented scaling/peak extraction.
  */
 
 #ifndef RADAR_H_
