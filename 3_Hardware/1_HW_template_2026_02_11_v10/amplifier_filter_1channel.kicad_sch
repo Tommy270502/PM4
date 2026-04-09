@@ -952,6 +952,17 @@
 		)
 		(uuid c72a065c-de34-4ed1-a68e-f81f0b83b4dd)
 	)
+	(text "correction: 100k"
+		(exclude_from_sim no)
+		(at 191.77 88.392 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+		)
+		(uuid "0f571727-49b2-4e4b-ad33-bb13059eaa3e")
+	)
 	(text "total gain ~10000 or 80db"
 		(exclude_from_sim no)
 		(at 146.05 124.968 0)
