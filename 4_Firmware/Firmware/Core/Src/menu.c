@@ -372,7 +372,8 @@ void MENU_check_transition(void)
  * MENU_transition is used as a flag.
  * When the value is read by calling MENU_get_transition()
  * this flag is cleared, respectively set to MENU_NONE.
- * MENU_active however gets the new value.
+ * MENU_active is updated only for content menu selections (MENU_ZERO..MENU_TEN).
+ * Scroll transitions keep the currently active content menu unchanged.
  *****************************************************************************/
 MENU_item_t MENU_get_transition(void)
 {
@@ -380,7 +381,10 @@ MENU_item_t MENU_get_transition(void)
     if (temp != MENU_NONE)
     {
         MENU_transition = MENU_NONE;
-        MENU_active = temp;
+        if ((temp >= MENU_ZERO) && (temp <= MENU_TEN))
+        {
+            MENU_active = temp;
+        }
     }
     return temp;
 }

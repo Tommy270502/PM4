@@ -45,7 +45,7 @@
 #define DISP_LOOP_M2 	0	// Spectrum analyzer (refresh on every new I/Q block)
 #define DISP_LOOP_M3 	4	// Effect Menu (Filter Selection)
 #define DISP_LOOP_M4 	4	// Level meter
-#define DISP_LOOP_M5 	4	// ...
+#define DISP_LOOP_M5 	4	// Frequency peak readout
 #define DISP_LOOP_M6 	4	// ...
 #define DISP_LOOP_M7 	4	// ...
 #define DISP_LOOP_M8 	4	// ...
@@ -98,7 +98,7 @@ static bool spectrum_neg_peak_valid = false;
 static uint32_t disp_loop_count[MENU_TOTAL_ENTRIES] = {0}; // Loop counters for refreshing display menus
 static bool disp_refresh;			///< Display should be refreshed
 
-static uint8_t efect_active = 0;
+static uint8_t effect_active = 0;
 
 /* Multi-filter system: 5 types per channel (preconfigured) */
 static biquad_df2t_t fxL[5];
@@ -128,9 +128,13 @@ static void radar_prepare_processing_window(void);
 static uint32_t radar_get_recent_start_index(uint32_t count);
 static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t *min_value,
 		float32_t *max_value);
+static bool radar_get_spectrum_bin_window(uint32_t *center_bin, uint32_t *start_bin,
+		uint32_t *end_bin);
 static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 		float32_t *max_value);
 static void radar_update_peak_readout(void);
+static uint32_t menu_get_refresh_limit(MENU_item_t menu_item);
+static void menu_request_refresh(MENU_item_t menu_item, bool immediate);
 static void touch_get_adjusted_state(TS_StateTypeDef *touch_state);
 static bool touch_is_inside_rect(uint16_t x, uint16_t y, uint16_t rect_x,
 		uint16_t rect_y, uint16_t rect_width, uint16_t rect_height);
@@ -204,7 +208,7 @@ int main(void) {
 	}
 	
 	// Set initial effect state (active for LOWPASS)
-	efect_active = (current_filter_index != FILTER_BYPASS);
+	effect_active = (current_filter_index != FILTER_BYPASS);
 
 	ret_val = fft_init();
 	error_handling(ret_val);
@@ -217,6 +221,7 @@ int main(void) {
 		/* Comment next line if touchscreen interrupt is enabled */
 		MENU_check_transition();
 		MENU_item_t menu_transition = MENU_get_transition();
+		MENU_item_t active_menu;
 		switch (menu_transition) {	// Handle user menu transitions
 		case MENU_NONE:	// No transition => do nothing
 			break;
@@ -237,21 +242,20 @@ int main(void) {
 		case MENU_EIGHT:
 		case MENU_NINE:
 		case MENU_TEN:
-			disp_refresh = true;	// Switch to new menu item
+			menu_request_refresh(menu_transition, true);
 			break;
 		default:	// Should never occur
 			break;
 		}
-		if (menu_transition == MENU_TEN) {
-			disp_loop_count[MENU_TEN] = DISP_LOOP_M10;
-		}
+
+		active_menu = MENU_get_active();
 
 		if (PB_pressed()) {				// Check if user pushbutton was pressed
 			// Cycle through filter types
 			current_filter_index = (current_filter_index + 1) % 5;
 
 			// Update effect active flag (false only for BYPASS)
-			efect_active = (current_filter_index != FILTER_BYPASS);
+			effect_active = (current_filter_index != FILTER_BYPASS);
 
 			if (radar_window_fill_samples >= RADAR_CHANNEL_SAMPLES) {
 				radar_prepare_processing_window();
@@ -261,23 +265,20 @@ int main(void) {
 			}
 
 			// Show current filter on LCD
-			disp_refresh = true;
-			// Force immediate display refresh by resetting loop counter
-			disp_loop_count[MENU_THREE] = DISP_LOOP_M3;
+			menu_request_refresh(MENU_THREE, true);
 		}
 
 		if (ekg_process_if_ready(&ekg_latest)) {
 			if (ekg_latest.r_peak) {
 				ekg_last_peak_tick = HAL_GetTick();
 			}
-			if (MENU_get_active() == MENU_NINE) {
-				disp_refresh = true;
+			if (active_menu == MENU_NINE) {
+				menu_request_refresh(MENU_NINE, false);
 			}
 		}
 
-		if ((MENU_get_active() == MENU_TEN) && dac_output_handle_touch()) {
-			disp_refresh = true;
-			disp_loop_count[MENU_TEN] = DISP_LOOP_M10;
+		if ((active_menu == MENU_TEN) && dac_output_handle_touch()) {
+			menu_request_refresh(MENU_TEN, true);
 		}
 
 		if (radar_frame_ready()) {
@@ -305,7 +306,7 @@ int main(void) {
 		if (disp_refresh) {
 			disp_refresh = false;
 
-			switch (MENU_get_active()) {	// Show data for active user menu
+			switch (active_menu) {	// Show data for active user menu
 			case MENU_NONE:	// Display help screen
 				break;
 			case MENU_ZERO:	// Info screen
@@ -489,7 +490,7 @@ static void radar_prepare_processing_window(void) {
 		radar_q_samples[i] = radar_q_history[i];
 	}
 
-	if (efect_active) {
+	if (effect_active) {
 		biquad_df2t_t filter_l = fxL[current_filter_index];
 		biquad_df2t_t filter_r = fxR[current_filter_index];
 
@@ -559,16 +560,14 @@ static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t
 	*max_value = center + (0.5f * span) + headroom;
 }
 
-static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
-		float32_t *max_value) {
+static bool radar_get_spectrum_bin_window(uint32_t *center_bin, uint32_t *start_bin,
+		uint32_t *end_bin) {
+	uint32_t local_center = RADAR_CHANNEL_SAMPLES / 2U;
 	uint32_t half_bins;
-	uint32_t local_start;
-	uint32_t local_count;
 	float32_t bin_hz;
-	float32_t peak = 0.0f;
 
-	if ((start_index == 0) || (count == 0) || (max_value == 0)) {
-		return;
+	if ((start_bin == 0) || (end_bin == 0) || (local_center == 0U)) {
+		return false;
 	}
 
 	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
@@ -576,12 +575,35 @@ static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 	if (((float32_t) half_bins * bin_hz) < SPECTRUM_DISPLAY_HZ) {
 		half_bins++;
 	}
-	if (half_bins >= (RADAR_CHANNEL_SAMPLES / 2U)) {
-		half_bins = (RADAR_CHANNEL_SAMPLES / 2U) - 1U;
+	if (half_bins >= local_center) {
+		half_bins = local_center - 1U;
 	}
 
-	local_start = (RADAR_CHANNEL_SAMPLES / 2U) - half_bins;
-	local_count = (2U * half_bins) + 1U;
+	if (center_bin != 0) {
+		*center_bin = local_center;
+	}
+	*start_bin = local_center - half_bins;
+	*end_bin = local_center + half_bins + 1U;
+
+	return true;
+}
+
+static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
+		float32_t *max_value) {
+	uint32_t local_start;
+	uint32_t local_end;
+	uint32_t local_count;
+	float32_t peak = 0.0f;
+
+	if ((start_index == 0) || (count == 0) || (max_value == 0)) {
+		return;
+	}
+
+	if (!radar_get_spectrum_bin_window(0, &local_start, &local_end)) {
+		return;
+	}
+
+	local_count = local_end - local_start;
 
 	for (uint32_t i = 0; i < local_count; i++) {
 		float32_t value = spectrum_shifted[local_start + i];
@@ -601,27 +623,27 @@ static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 
 static void radar_update_peak_readout(void)
 {
-	uint32_t center_bin = RADAR_CHANNEL_SAMPLES / 2U;
-	uint32_t half_bins;
+	uint32_t center_bin = 0U;
 	uint32_t neg_start;
 	uint32_t pos_end;
-	uint32_t neg_peak_bin = center_bin;
-	uint32_t pos_peak_bin = center_bin;
+	uint32_t neg_peak_bin = 0U;
+	uint32_t pos_peak_bin = 0U;
 	float32_t neg_peak_mag = 0.0f;
 	float32_t pos_peak_mag = 0.0f;
 	float32_t bin_hz;
 
-	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
-	half_bins = (uint32_t) (SPECTRUM_DISPLAY_HZ / bin_hz);
-	if (((float32_t) half_bins * bin_hz) < SPECTRUM_DISPLAY_HZ) {
-		half_bins++;
-	}
-	if (half_bins >= center_bin) {
-		half_bins = center_bin - 1U;
+	if (!radar_get_spectrum_bin_window(&center_bin, &neg_start, &pos_end)) {
+		spectrum_neg_peak_valid = false;
+		spectrum_pos_peak_valid = false;
+		spectrum_neg_peak_hz = 0.0f;
+		spectrum_pos_peak_hz = 0.0f;
+		return;
 	}
 
-	neg_start = center_bin - half_bins;
-	pos_end = center_bin + half_bins + 1U;
+	neg_peak_bin = center_bin;
+	pos_peak_bin = center_bin;
+
+	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
 
 	for (uint32_t i = neg_start; i < center_bin; i++) {
 		float32_t value = spectrum_shifted[i];
@@ -662,6 +684,43 @@ static void radar_update_peak_readout(void)
 			spectrum_neg_peak_valid = false;
 			spectrum_neg_peak_hz = 0.0f;
 		}
+	}
+}
+
+static uint32_t menu_get_refresh_limit(MENU_item_t menu_item) {
+	switch (menu_item) {
+	case MENU_ZERO:
+		return DISP_LOOP_M0;
+	case MENU_ONE:
+		return DISP_LOOP_M1;
+	case MENU_TWO:
+		return DISP_LOOP_M2;
+	case MENU_THREE:
+		return DISP_LOOP_M3;
+	case MENU_FOUR:
+		return DISP_LOOP_M4;
+	case MENU_FIVE:
+		return DISP_LOOP_M5;
+	case MENU_SIX:
+		return DISP_LOOP_M6;
+	case MENU_SEVEN:
+		return DISP_LOOP_M7;
+	case MENU_EIGHT:
+		return DISP_LOOP_M8;
+	case MENU_NINE:
+		return DISP_LOOP_M9;
+	case MENU_TEN:
+		return DISP_LOOP_M10;
+	default:
+		return 0U;
+	}
+}
+
+static void menu_request_refresh(MENU_item_t menu_item, bool immediate) {
+	disp_refresh = true;
+
+	if (immediate && (menu_item >= MENU_ZERO) && (menu_item <= MENU_TEN)) {
+		disp_loop_count[menu_item] = menu_get_refresh_limit(menu_item);
 	}
 }
 
