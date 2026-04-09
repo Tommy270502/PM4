@@ -63,6 +63,8 @@
 #define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_MIN_DISPLAY_MAX 0.001f
 #define SPECTRUM_HEADROOM        1.15f
+#define SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
+#define SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
 #define DAC_TOUCH_STEP_VOLTAGE   0.1f
 #define DAC_SLIDER_X             20U
 #define DAC_SLIDER_Y             120U
@@ -88,6 +90,10 @@ static float32_t radar_i_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_q_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t spectrum_shifted[RADAR_CHANNEL_SAMPLES];
 static uint32_t radar_window_fill_samples = 0U;
+static float32_t spectrum_pos_peak_hz = 0.0f;
+static float32_t spectrum_neg_peak_hz = 0.0f;
+static bool spectrum_pos_peak_valid = false;
+static bool spectrum_neg_peak_valid = false;
 
 static uint32_t disp_loop_count[MENU_TOTAL_ENTRIES] = {0}; // Loop counters for refreshing display menus
 static bool disp_refresh;			///< Display should be refreshed
@@ -124,11 +130,13 @@ static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t
 		float32_t *max_value);
 static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 		float32_t *max_value);
+static void radar_update_peak_readout(void);
 static void touch_get_adjusted_state(TS_StateTypeDef *touch_state);
 static bool touch_is_inside_rect(uint16_t x, uint16_t y, uint16_t rect_x,
 		uint16_t rect_y, uint16_t rect_width, uint16_t rect_height);
 static void dac_output_step(float delta_voltage);
 static bool dac_output_handle_touch(void);
+static void disp_peak_frequencies(void);
 static void disp_dac_output(void);
 
 /** ***************************************************************************
@@ -249,6 +257,7 @@ int main(void) {
 				radar_prepare_processing_window();
 				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
 				error_handling(ret_val);
+				radar_update_peak_readout();
 			}
 
 			// Show current filter on LCD
@@ -287,6 +296,7 @@ int main(void) {
 				// Use the rolling 50%-overlapped I/Q window for calculations.
 				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
 				error_handling(ret_val);
+				radar_update_peak_readout();
 
 				disp_refresh = true;      // Tell the display about the new data
 			}
@@ -380,7 +390,12 @@ int main(void) {
 					disp_level(-10, -5, -12, -6); // TODO
 				}
 				break;
-			case MENU_FIVE:
+			case MENU_FIVE: // Frequency peak readout
+				if (disp_loop_count[MENU_FIVE]++ >= DISP_LOOP_M5) {
+					disp_loop_count[MENU_FIVE] = 0;
+					disp_peak_frequencies();
+				}
+				break;
 			case MENU_SIX:
 			case MENU_SEVEN:
 			case MENU_EIGHT:
@@ -584,6 +599,72 @@ static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
 	*max_value = peak * SPECTRUM_HEADROOM;
 }
 
+static void radar_update_peak_readout(void)
+{
+	uint32_t center_bin = RADAR_CHANNEL_SAMPLES / 2U;
+	uint32_t half_bins;
+	uint32_t neg_start;
+	uint32_t pos_end;
+	uint32_t neg_peak_bin = center_bin;
+	uint32_t pos_peak_bin = center_bin;
+	float32_t neg_peak_mag = 0.0f;
+	float32_t pos_peak_mag = 0.0f;
+	float32_t bin_hz;
+
+	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
+	half_bins = (uint32_t) (SPECTRUM_DISPLAY_HZ / bin_hz);
+	if (((float32_t) half_bins * bin_hz) < SPECTRUM_DISPLAY_HZ) {
+		half_bins++;
+	}
+	if (half_bins >= center_bin) {
+		half_bins = center_bin - 1U;
+	}
+
+	neg_start = center_bin - half_bins;
+	pos_end = center_bin + half_bins + 1U;
+
+	for (uint32_t i = neg_start; i < center_bin; i++) {
+		float32_t value = spectrum_shifted[i];
+		if (value > neg_peak_mag) {
+			neg_peak_mag = value;
+			neg_peak_bin = i;
+		}
+	}
+
+	for (uint32_t i = center_bin + 1U; i < pos_end; i++) {
+		float32_t value = spectrum_shifted[i];
+		if (value > pos_peak_mag) {
+			pos_peak_mag = value;
+			pos_peak_bin = i;
+		}
+	}
+
+	spectrum_neg_peak_valid = (neg_peak_mag > SPECTRUM_PEAK_VALID_THRESHOLD);
+	spectrum_pos_peak_valid = (pos_peak_mag > SPECTRUM_PEAK_VALID_THRESHOLD);
+
+	if (spectrum_neg_peak_valid) {
+		spectrum_neg_peak_hz = ((float32_t) neg_peak_bin - (float32_t) center_bin) * bin_hz;
+	} else {
+		spectrum_neg_peak_hz = 0.0f;
+	}
+
+	if (spectrum_pos_peak_valid) {
+		spectrum_pos_peak_hz = ((float32_t) pos_peak_bin - (float32_t) center_bin) * bin_hz;
+	} else {
+		spectrum_pos_peak_hz = 0.0f;
+	}
+
+	if (spectrum_neg_peak_valid && spectrum_pos_peak_valid) {
+		if (neg_peak_mag >= (SPECTRUM_PEAK_DOMINANCE_RATIO * pos_peak_mag)) {
+			spectrum_pos_peak_valid = false;
+			spectrum_pos_peak_hz = 0.0f;
+		} else if (pos_peak_mag >= (SPECTRUM_PEAK_DOMINANCE_RATIO * neg_peak_mag)) {
+			spectrum_neg_peak_valid = false;
+			spectrum_neg_peak_hz = 0.0f;
+		}
+	}
+}
+
 static void touch_get_adjusted_state(TS_StateTypeDef *touch_state)
 {
 	if (touch_state == 0) {
@@ -652,6 +733,47 @@ static bool dac_output_handle_touch(void)
 	}
 
 	return (old_code != dac_output_get_code());
+}
+
+static void disp_peak_frequencies(void)
+{
+	char text[32];
+
+	disp_clear_data();
+
+	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+
+	BSP_LCD_SetFont(&Font20);
+	BSP_LCD_DisplayStringAt(0, 10, (uint8_t*) "Peak Frequencies", CENTER_MODE);
+
+	BSP_LCD_SetFont(&Font16);
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	BSP_LCD_DisplayStringAt(0, 58, (uint8_t*) "Positive peak", CENTER_MODE);
+
+	BSP_LCD_SetFont(&Font24);
+	if (spectrum_pos_peak_valid) {
+		snprintf(text, sizeof(text), "%+.2f Hz", spectrum_pos_peak_hz);
+		BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+	} else {
+		snprintf(text, sizeof(text), "--- Hz");
+		BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+	}
+	BSP_LCD_DisplayStringAt(0, 84, (uint8_t*) text, CENTER_MODE);
+
+	BSP_LCD_SetFont(&Font16);
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	BSP_LCD_DisplayStringAt(0, 158, (uint8_t*) "Negative peak", CENTER_MODE);
+
+	BSP_LCD_SetFont(&Font24);
+	if (spectrum_neg_peak_valid) {
+		snprintf(text, sizeof(text), "%+.2f Hz", spectrum_neg_peak_hz);
+		BSP_LCD_SetTextColor(LCD_COLOR_RED);
+	} else {
+		snprintf(text, sizeof(text), "--- Hz");
+		BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+	}
+	BSP_LCD_DisplayStringAt(0, 184, (uint8_t*) text, CENTER_MODE);
 }
 
 static void disp_dac_output(void)
