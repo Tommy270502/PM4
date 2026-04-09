@@ -17,8 +17,11 @@
 /******************************************************************************
  * Includes
  *****************************************************************************/
+#include <stdbool.h>
+
 #include "stm32f4xx.h"
 #include "arm_math.h"
+#include "filters.h"
 
 /******************************************************************************
  * Defines
@@ -100,5 +103,78 @@ uint8_t radar_frame_ready(void);
  *       handling the data.
  */
 void radar_clear_frame_ready(void);
+
+/**
+ * @brief Shift-in the latest acquired chunk into rolling history buffers.
+ *
+ * The history buffers keep the last full analysis window and are advanced by
+ * RADAR_FRAME_ADVANCE_SAMPLES on each call.
+ *
+ * @param i_history Rolling I-history buffer of size RADAR_CHANNEL_SAMPLES.
+ * @param q_history Rolling Q-history buffer of size RADAR_CHANNEL_SAMPLES.
+ * @param i_acquired Latest acquired I chunk of size RADAR_FRAME_ADVANCE_SAMPLES.
+ * @param q_acquired Latest acquired Q chunk of size RADAR_FRAME_ADVANCE_SAMPLES.
+ * @param window_fill_samples In/out fill level of the rolling window.
+ *
+ * @return true when a full RADAR_CHANNEL_SAMPLES analysis window is available.
+ */
+bool radar_append_latest_chunk(float32_t *i_history, float32_t *q_history,
+                               const float32_t *i_acquired, const float32_t *q_acquired,
+                               uint32_t *window_fill_samples);
+
+/**
+ * @brief Copy rolling history to processing buffers and apply optional filter.
+ *
+ * @param i_samples Output processing buffer for I, size RADAR_CHANNEL_SAMPLES.
+ * @param q_samples Output processing buffer for Q, size RADAR_CHANNEL_SAMPLES.
+ * @param i_history Input rolling I history, size RADAR_CHANNEL_SAMPLES.
+ * @param q_history Input rolling Q history, size RADAR_CHANNEL_SAMPLES.
+ * @param effect_active Apply filter when true.
+ * @param filter_l_bank Filter bank for I channel (index matches filter type).
+ * @param filter_r_bank Filter bank for Q channel (index matches filter type).
+ * @param filter_index Active filter index in both filter banks.
+ */
+void radar_prepare_processing_window(float32_t *i_samples, float32_t *q_samples,
+                                     const float32_t *i_history, const float32_t *q_history,
+                                     bool effect_active,
+                                     const biquad_df2t_t *filter_l_bank,
+                                     const biquad_df2t_t *filter_r_bank,
+                                     uint8_t filter_index);
+
+/**
+ * @brief Returns start index for the newest @p count samples in a radar buffer.
+ */
+uint32_t radar_get_recent_start_index(uint32_t count);
+
+/**
+ * @brief Compute display scale for recent time-domain I/Q samples.
+ */
+void radar_get_time_scale(const float32_t *i_samples, const float32_t *q_samples,
+                          uint32_t start_index, uint32_t count,
+                          float32_t min_span, float32_t headroom_ratio,
+                          float32_t *min_value, float32_t *max_value);
+
+/**
+ * @brief Compute centered spectrum display window and y-axis max value.
+ */
+void radar_get_spectrum_window(const float32_t *spectrum_shifted,
+                               float32_t display_hz,
+                               float32_t min_display_max,
+                               float32_t headroom_ratio,
+                               uint32_t *start_index,
+                               uint32_t *count,
+                               float32_t *max_value);
+
+/**
+ * @brief Compute dominant positive/negative frequency peaks around DC.
+ */
+void radar_update_peak_readout(const float32_t *spectrum_shifted,
+                               float32_t display_hz,
+                               float32_t valid_threshold,
+                               float32_t dominance_ratio,
+                               float32_t *pos_peak_hz,
+                               float32_t *neg_peak_hz,
+                               bool *pos_peak_valid,
+                               bool *neg_peak_valid);
 
 #endif

@@ -21,6 +21,10 @@ static uint8_t radar_data_ready = 0;
 static void timer2_init_sample_rate(void);
 static void adc_dual_dma_init(void);
 static void unpack_iq_samples(uint32_t *packed_buffer);
+static bool radar_get_spectrum_bin_window(float32_t display_hz,
+                                          uint32_t *center_bin,
+                                          uint32_t *start_bin,
+                                          uint32_t *end_bin);
 
 void DMA2_Stream0_IRQHandler(void);
 void DMA2_Stream1_IRQHandler(void);
@@ -73,6 +77,329 @@ uint8_t radar_frame_ready(void)
 void radar_clear_frame_ready(void)
 {
     radar_data_ready = 0;
+}
+
+bool radar_append_latest_chunk(float32_t *i_history, float32_t *q_history,
+                               const float32_t *i_acquired, const float32_t *q_acquired,
+                               uint32_t *window_fill_samples)
+{
+    uint32_t history_keep;
+
+    if ((i_history == 0) || (q_history == 0) || (i_acquired == 0) || (q_acquired == 0)
+            || (window_fill_samples == 0))
+    {
+        return false;
+    }
+
+    history_keep = RADAR_CHANNEL_SAMPLES - RADAR_FRAME_ADVANCE_SAMPLES;
+
+    for (uint32_t i = 0; i < history_keep; i++)
+    {
+        i_history[i] = i_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
+        q_history[i] = q_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
+    }
+
+    for (uint32_t i = 0; i < RADAR_FRAME_ADVANCE_SAMPLES; i++)
+    {
+        i_history[history_keep + i] = i_acquired[i];
+        q_history[history_keep + i] = q_acquired[i];
+    }
+
+    if (*window_fill_samples < RADAR_CHANNEL_SAMPLES)
+    {
+        *window_fill_samples += RADAR_FRAME_ADVANCE_SAMPLES;
+        if (*window_fill_samples > RADAR_CHANNEL_SAMPLES)
+        {
+            *window_fill_samples = RADAR_CHANNEL_SAMPLES;
+        }
+    }
+
+    return (*window_fill_samples >= RADAR_CHANNEL_SAMPLES);
+}
+
+void radar_prepare_processing_window(float32_t *i_samples, float32_t *q_samples,
+                                     const float32_t *i_history, const float32_t *q_history,
+                                     bool effect_active,
+                                     const biquad_df2t_t *filter_l_bank,
+                                     const biquad_df2t_t *filter_r_bank,
+                                     uint8_t filter_index)
+{
+    if ((i_samples == 0) || (q_samples == 0) || (i_history == 0) || (q_history == 0))
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++)
+    {
+        i_samples[i] = i_history[i];
+        q_samples[i] = q_history[i];
+    }
+
+    if (effect_active)
+    {
+        biquad_df2t_t filter_l;
+        biquad_df2t_t filter_r;
+
+        if ((filter_l_bank == 0) || (filter_r_bank == 0))
+        {
+            return;
+        }
+
+        filter_l = filter_l_bank[filter_index];
+        filter_r = filter_r_bank[filter_index];
+
+        biquad_reset(&filter_l);
+        biquad_reset(&filter_r);
+
+        biquad_process_buffer(&filter_l, i_samples, RADAR_CHANNEL_SAMPLES);
+        biquad_process_buffer(&filter_r, q_samples, RADAR_CHANNEL_SAMPLES);
+    }
+}
+
+uint32_t radar_get_recent_start_index(uint32_t count)
+{
+    if (count >= RADAR_CHANNEL_SAMPLES)
+    {
+        return 0U;
+    }
+
+    return RADAR_CHANNEL_SAMPLES - count;
+}
+
+void radar_get_time_scale(const float32_t *i_samples, const float32_t *q_samples,
+                          uint32_t start_index, uint32_t count,
+                          float32_t min_span, float32_t headroom_ratio,
+                          float32_t *min_value, float32_t *max_value)
+{
+    float32_t min_sample;
+    float32_t max_sample;
+    float32_t span;
+    float32_t center;
+    float32_t headroom;
+
+    if ((i_samples == 0) || (q_samples == 0) || (min_value == 0) || (max_value == 0)
+            || (count == 0U))
+    {
+        return;
+    }
+
+    if (start_index >= RADAR_CHANNEL_SAMPLES)
+    {
+        return;
+    }
+
+    if (count > (RADAR_CHANNEL_SAMPLES - start_index))
+    {
+        count = RADAR_CHANNEL_SAMPLES - start_index;
+    }
+
+    min_sample = i_samples[start_index];
+    max_sample = i_samples[start_index];
+
+    for (uint32_t i = start_index; i < (start_index + count); i++)
+    {
+        if (i_samples[i] < min_sample)
+        {
+            min_sample = i_samples[i];
+        }
+        if (i_samples[i] > max_sample)
+        {
+            max_sample = i_samples[i];
+        }
+        if (q_samples[i] < min_sample)
+        {
+            min_sample = q_samples[i];
+        }
+        if (q_samples[i] > max_sample)
+        {
+            max_sample = q_samples[i];
+        }
+    }
+
+    span = max_sample - min_sample;
+    if (span < min_span)
+    {
+        span = min_span;
+    }
+
+    center = 0.5f * (max_sample + min_sample);
+    headroom = span * headroom_ratio;
+
+    *min_value = center - (0.5f * span) - headroom;
+    *max_value = center + (0.5f * span) + headroom;
+}
+
+void radar_get_spectrum_window(const float32_t *spectrum_shifted,
+                               float32_t display_hz,
+                               float32_t min_display_max,
+                               float32_t headroom_ratio,
+                               uint32_t *start_index,
+                               uint32_t *count,
+                               float32_t *max_value)
+{
+    uint32_t local_start;
+    uint32_t local_end;
+    uint32_t local_count;
+    float32_t peak = 0.0f;
+
+    if ((spectrum_shifted == 0) || (start_index == 0) || (count == 0) || (max_value == 0))
+    {
+        return;
+    }
+
+    if (!radar_get_spectrum_bin_window(display_hz, 0, &local_start, &local_end))
+    {
+        return;
+    }
+
+    local_count = local_end - local_start;
+
+    for (uint32_t i = 0; i < local_count; i++)
+    {
+        float32_t value = spectrum_shifted[local_start + i];
+        if (value > peak)
+        {
+            peak = value;
+        }
+    }
+
+    if (peak < min_display_max)
+    {
+        peak = min_display_max;
+    }
+
+    *start_index = local_start;
+    *count = local_count;
+    *max_value = peak * headroom_ratio;
+}
+
+void radar_update_peak_readout(const float32_t *spectrum_shifted,
+                               float32_t display_hz,
+                               float32_t valid_threshold,
+                               float32_t dominance_ratio,
+                               float32_t *pos_peak_hz,
+                               float32_t *neg_peak_hz,
+                               bool *pos_peak_valid,
+                               bool *neg_peak_valid)
+{
+    uint32_t center_bin = 0U;
+    uint32_t neg_start;
+    uint32_t pos_end;
+    uint32_t neg_peak_bin = 0U;
+    uint32_t pos_peak_bin = 0U;
+    float32_t neg_peak_mag = 0.0f;
+    float32_t pos_peak_mag = 0.0f;
+    float32_t bin_hz;
+
+    if ((spectrum_shifted == 0) || (pos_peak_hz == 0) || (neg_peak_hz == 0)
+            || (pos_peak_valid == 0) || (neg_peak_valid == 0))
+    {
+        return;
+    }
+
+    if (!radar_get_spectrum_bin_window(display_hz, &center_bin, &neg_start, &pos_end))
+    {
+        *neg_peak_valid = false;
+        *pos_peak_valid = false;
+        *neg_peak_hz = 0.0f;
+        *pos_peak_hz = 0.0f;
+        return;
+    }
+
+    neg_peak_bin = center_bin;
+    pos_peak_bin = center_bin;
+
+    bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
+
+    for (uint32_t i = neg_start; i < center_bin; i++)
+    {
+        float32_t value = spectrum_shifted[i];
+        if (value > neg_peak_mag)
+        {
+            neg_peak_mag = value;
+            neg_peak_bin = i;
+        }
+    }
+
+    for (uint32_t i = center_bin + 1U; i < pos_end; i++)
+    {
+        float32_t value = spectrum_shifted[i];
+        if (value > pos_peak_mag)
+        {
+            pos_peak_mag = value;
+            pos_peak_bin = i;
+        }
+    }
+
+    *neg_peak_valid = (neg_peak_mag > valid_threshold);
+    *pos_peak_valid = (pos_peak_mag > valid_threshold);
+
+    if (*neg_peak_valid)
+    {
+        *neg_peak_hz = ((float32_t) neg_peak_bin - (float32_t) center_bin) * bin_hz;
+    }
+    else
+    {
+        *neg_peak_hz = 0.0f;
+    }
+
+    if (*pos_peak_valid)
+    {
+        *pos_peak_hz = ((float32_t) pos_peak_bin - (float32_t) center_bin) * bin_hz;
+    }
+    else
+    {
+        *pos_peak_hz = 0.0f;
+    }
+
+    if (*neg_peak_valid && *pos_peak_valid)
+    {
+        if (neg_peak_mag >= (dominance_ratio * pos_peak_mag))
+        {
+            *pos_peak_valid = false;
+            *pos_peak_hz = 0.0f;
+        }
+        else if (pos_peak_mag >= (dominance_ratio * neg_peak_mag))
+        {
+            *neg_peak_valid = false;
+            *neg_peak_hz = 0.0f;
+        }
+    }
+}
+
+static bool radar_get_spectrum_bin_window(float32_t display_hz,
+                                          uint32_t *center_bin,
+                                          uint32_t *start_bin,
+                                          uint32_t *end_bin)
+{
+    uint32_t local_center = RADAR_CHANNEL_SAMPLES / 2U;
+    uint32_t half_bins;
+    float32_t bin_hz;
+
+    if ((start_bin == 0) || (end_bin == 0) || (local_center == 0U))
+    {
+        return false;
+    }
+
+    bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
+    half_bins = (uint32_t)(display_hz / bin_hz);
+    if (((float32_t)half_bins * bin_hz) < display_hz)
+    {
+        half_bins++;
+    }
+    if (half_bins >= local_center)
+    {
+        half_bins = local_center - 1U;
+    }
+
+    if (center_bin != 0)
+    {
+        *center_bin = local_center;
+    }
+    *start_bin = local_center - half_bins;
+    *end_bin = local_center + half_bins + 1U;
+
+    return true;
 }
 
 static void timer2_init_sample_rate(void)

@@ -123,16 +123,6 @@ static bool dac_touch_was_detected = false;
 static void SystemClock_Config(void);	///< System Clock Configuration
 static void gyro_disable(void);			///< Disable the onboard gyroscope
 static void error_handling(HAL_StatusTypeDef error);
-static bool radar_append_latest_chunk(void);
-static void radar_prepare_processing_window(void);
-static uint32_t radar_get_recent_start_index(uint32_t count);
-static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t *min_value,
-		float32_t *max_value);
-static bool radar_get_spectrum_bin_window(uint32_t *center_bin, uint32_t *start_bin,
-		uint32_t *end_bin);
-static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
-		float32_t *max_value);
-static void radar_update_peak_readout(void);
 static uint32_t menu_get_refresh_limit(MENU_item_t menu_item);
 static void menu_request_refresh(MENU_item_t menu_item, bool immediate);
 static void touch_get_adjusted_state(TS_StateTypeDef *touch_state);
@@ -258,10 +248,19 @@ int main(void) {
 			effect_active = (current_filter_index != FILTER_BYPASS);
 
 			if (radar_window_fill_samples >= RADAR_CHANNEL_SAMPLES) {
-				radar_prepare_processing_window();
+				radar_prepare_processing_window(radar_i_samples, radar_q_samples,
+						radar_i_history, radar_q_history,
+						effect_active, fxL, fxR, current_filter_index);
 				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
 				error_handling(ret_val);
-				radar_update_peak_readout();
+				radar_update_peak_readout(spectrum_shifted,
+						SPECTRUM_DISPLAY_HZ,
+						SPECTRUM_PEAK_VALID_THRESHOLD,
+						SPECTRUM_PEAK_DOMINANCE_RATIO,
+						&spectrum_pos_peak_hz,
+						&spectrum_neg_peak_hz,
+						&spectrum_pos_peak_valid,
+						&spectrum_neg_peak_valid);
 			}
 
 			// Show current filter on LCD
@@ -286,18 +285,28 @@ int main(void) {
 			uint32_t primask = __get_PRIMASK();
 			__disable_irq();
 			radar_clear_frame_ready();
-			window_ready = radar_append_latest_chunk();
+			window_ready = radar_append_latest_chunk(radar_i_history, radar_q_history,
+					radar_i_acquired, radar_q_acquired, &radar_window_fill_samples);
 			if (primask == 0U) {
 				__enable_irq();
 			}
 
 			if (window_ready) {
-				radar_prepare_processing_window();
+				radar_prepare_processing_window(radar_i_samples, radar_q_samples,
+						radar_i_history, radar_q_history,
+						effect_active, fxL, fxR, current_filter_index);
 
 				// Use the rolling 50%-overlapped I/Q window for calculations.
 				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
 				error_handling(ret_val);
-				radar_update_peak_readout();
+				radar_update_peak_readout(spectrum_shifted,
+						SPECTRUM_DISPLAY_HZ,
+						SPECTRUM_PEAK_VALID_THRESHOLD,
+						SPECTRUM_PEAK_DOMINANCE_RATIO,
+						&spectrum_pos_peak_hz,
+						&spectrum_neg_peak_hz,
+						&spectrum_pos_peak_valid,
+						&spectrum_neg_peak_valid);
 
 				disp_refresh = true;      // Tell the display about the new data
 			}
@@ -323,7 +332,10 @@ int main(void) {
 					float32_t signal_max;
 					disp_loop_count[MENU_ONE] = 0;
 					signal_start = radar_get_recent_start_index(TIME_SIGNAL_POINTS);
-					radar_get_time_scale(signal_start, TIME_SIGNAL_POINTS, &signal_min, &signal_max);
+					radar_get_time_scale(radar_i_samples, radar_q_samples,
+							signal_start, TIME_SIGNAL_POINTS,
+							TIME_SIGNAL_MIN_SPAN, TIME_SIGNAL_HEADROOM,
+							&signal_min, &signal_max);
 					disp_clear_data();
 					disp_curves(&radar_i_samples[signal_start], TIME_SIGNAL_POINTS,
 							signal_min,
@@ -341,7 +353,13 @@ int main(void) {
 					uint32_t spectrum_count;
 					float32_t spectrum_max;
 					disp_loop_count[MENU_TWO] = 0;
-					radar_get_spectrum_window(&spectrum_start, &spectrum_count, &spectrum_max);
+					radar_get_spectrum_window(spectrum_shifted,
+							SPECTRUM_DISPLAY_HZ,
+							SPECTRUM_MIN_DISPLAY_MAX,
+							SPECTRUM_HEADROOM,
+							&spectrum_start,
+							&spectrum_count,
+							&spectrum_max);
 					disp_clear_data();
 					BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
 					BSP_LCD_DrawLine(DISP_WIDTH / 2U, 0U, DISP_WIDTH / 2U, DISP_HEIGHT - 1U);
@@ -458,232 +476,6 @@ int main(void) {
 
 		}
 
-	}
-}
-
-static bool radar_append_latest_chunk(void) {
-	uint32_t history_keep = RADAR_CHANNEL_SAMPLES - RADAR_FRAME_ADVANCE_SAMPLES;
-
-	for (uint32_t i = 0; i < history_keep; i++) {
-		radar_i_history[i] = radar_i_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
-		radar_q_history[i] = radar_q_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
-	}
-
-	for (uint32_t i = 0; i < RADAR_FRAME_ADVANCE_SAMPLES; i++) {
-		radar_i_history[history_keep + i] = radar_i_acquired[i];
-		radar_q_history[history_keep + i] = radar_q_acquired[i];
-	}
-
-	if (radar_window_fill_samples < RADAR_CHANNEL_SAMPLES) {
-		radar_window_fill_samples += RADAR_FRAME_ADVANCE_SAMPLES;
-		if (radar_window_fill_samples > RADAR_CHANNEL_SAMPLES) {
-			radar_window_fill_samples = RADAR_CHANNEL_SAMPLES;
-		}
-	}
-
-	return (radar_window_fill_samples >= RADAR_CHANNEL_SAMPLES);
-}
-
-static void radar_prepare_processing_window(void) {
-	for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++) {
-		radar_i_samples[i] = radar_i_history[i];
-		radar_q_samples[i] = radar_q_history[i];
-	}
-
-	if (effect_active) {
-		biquad_df2t_t filter_l = fxL[current_filter_index];
-		biquad_df2t_t filter_r = fxR[current_filter_index];
-
-		biquad_reset(&filter_l);
-		biquad_reset(&filter_r);
-
-		biquad_process_buffer(&filter_l, radar_i_samples, RADAR_CHANNEL_SAMPLES);
-		biquad_process_buffer(&filter_r, radar_q_samples, RADAR_CHANNEL_SAMPLES);
-	}
-}
-
-static uint32_t radar_get_recent_start_index(uint32_t count) {
-	if (count >= RADAR_CHANNEL_SAMPLES) {
-		return 0U;
-	}
-
-	return RADAR_CHANNEL_SAMPLES - count;
-}
-
-static void radar_get_time_scale(uint32_t start_index, uint32_t count, float32_t *min_value,
-		float32_t *max_value) {
-	float32_t min_sample;
-	float32_t max_sample;
-	float32_t span;
-	float32_t center;
-	float32_t headroom;
-
-	if ((min_value == 0) || (max_value == 0) || (count == 0U)) {
-		return;
-	}
-
-	if (start_index >= RADAR_CHANNEL_SAMPLES) {
-		return;
-	}
-
-	if (count > (RADAR_CHANNEL_SAMPLES - start_index)) {
-		count = RADAR_CHANNEL_SAMPLES - start_index;
-	}
-
-	min_sample = radar_i_samples[start_index];
-	max_sample = radar_i_samples[start_index];
-
-	for (uint32_t i = start_index; i < (start_index + count); i++) {
-		if (radar_i_samples[i] < min_sample) {
-			min_sample = radar_i_samples[i];
-		}
-		if (radar_i_samples[i] > max_sample) {
-			max_sample = radar_i_samples[i];
-		}
-		if (radar_q_samples[i] < min_sample) {
-			min_sample = radar_q_samples[i];
-		}
-		if (radar_q_samples[i] > max_sample) {
-			max_sample = radar_q_samples[i];
-		}
-	}
-
-	span = max_sample - min_sample;
-	if (span < TIME_SIGNAL_MIN_SPAN) {
-		span = TIME_SIGNAL_MIN_SPAN;
-	}
-
-	center = 0.5f * (max_sample + min_sample);
-	headroom = span * TIME_SIGNAL_HEADROOM;
-
-	*min_value = center - (0.5f * span) - headroom;
-	*max_value = center + (0.5f * span) + headroom;
-}
-
-static bool radar_get_spectrum_bin_window(uint32_t *center_bin, uint32_t *start_bin,
-		uint32_t *end_bin) {
-	uint32_t local_center = RADAR_CHANNEL_SAMPLES / 2U;
-	uint32_t half_bins;
-	float32_t bin_hz;
-
-	if ((start_bin == 0) || (end_bin == 0) || (local_center == 0U)) {
-		return false;
-	}
-
-	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
-	half_bins = (uint32_t) (SPECTRUM_DISPLAY_HZ / bin_hz);
-	if (((float32_t) half_bins * bin_hz) < SPECTRUM_DISPLAY_HZ) {
-		half_bins++;
-	}
-	if (half_bins >= local_center) {
-		half_bins = local_center - 1U;
-	}
-
-	if (center_bin != 0) {
-		*center_bin = local_center;
-	}
-	*start_bin = local_center - half_bins;
-	*end_bin = local_center + half_bins + 1U;
-
-	return true;
-}
-
-static void radar_get_spectrum_window(uint32_t *start_index, uint32_t *count,
-		float32_t *max_value) {
-	uint32_t local_start;
-	uint32_t local_end;
-	uint32_t local_count;
-	float32_t peak = 0.0f;
-
-	if ((start_index == 0) || (count == 0) || (max_value == 0)) {
-		return;
-	}
-
-	if (!radar_get_spectrum_bin_window(0, &local_start, &local_end)) {
-		return;
-	}
-
-	local_count = local_end - local_start;
-
-	for (uint32_t i = 0; i < local_count; i++) {
-		float32_t value = spectrum_shifted[local_start + i];
-		if (value > peak) {
-			peak = value;
-		}
-	}
-
-	if (peak < SPECTRUM_MIN_DISPLAY_MAX) {
-		peak = SPECTRUM_MIN_DISPLAY_MAX;
-	}
-
-	*start_index = local_start;
-	*count = local_count;
-	*max_value = peak * SPECTRUM_HEADROOM;
-}
-
-static void radar_update_peak_readout(void)
-{
-	uint32_t center_bin = 0U;
-	uint32_t neg_start;
-	uint32_t pos_end;
-	uint32_t neg_peak_bin = 0U;
-	uint32_t pos_peak_bin = 0U;
-	float32_t neg_peak_mag = 0.0f;
-	float32_t pos_peak_mag = 0.0f;
-	float32_t bin_hz;
-
-	if (!radar_get_spectrum_bin_window(&center_bin, &neg_start, &pos_end)) {
-		spectrum_neg_peak_valid = false;
-		spectrum_pos_peak_valid = false;
-		spectrum_neg_peak_hz = 0.0f;
-		spectrum_pos_peak_hz = 0.0f;
-		return;
-	}
-
-	neg_peak_bin = center_bin;
-	pos_peak_bin = center_bin;
-
-	bin_hz = (float32_t) RADAR_SAMPLE_RATE_HZ / (float32_t) RADAR_CHANNEL_SAMPLES;
-
-	for (uint32_t i = neg_start; i < center_bin; i++) {
-		float32_t value = spectrum_shifted[i];
-		if (value > neg_peak_mag) {
-			neg_peak_mag = value;
-			neg_peak_bin = i;
-		}
-	}
-
-	for (uint32_t i = center_bin + 1U; i < pos_end; i++) {
-		float32_t value = spectrum_shifted[i];
-		if (value > pos_peak_mag) {
-			pos_peak_mag = value;
-			pos_peak_bin = i;
-		}
-	}
-
-	spectrum_neg_peak_valid = (neg_peak_mag > SPECTRUM_PEAK_VALID_THRESHOLD);
-	spectrum_pos_peak_valid = (pos_peak_mag > SPECTRUM_PEAK_VALID_THRESHOLD);
-
-	if (spectrum_neg_peak_valid) {
-		spectrum_neg_peak_hz = ((float32_t) neg_peak_bin - (float32_t) center_bin) * bin_hz;
-	} else {
-		spectrum_neg_peak_hz = 0.0f;
-	}
-
-	if (spectrum_pos_peak_valid) {
-		spectrum_pos_peak_hz = ((float32_t) pos_peak_bin - (float32_t) center_bin) * bin_hz;
-	} else {
-		spectrum_pos_peak_hz = 0.0f;
-	}
-
-	if (spectrum_neg_peak_valid && spectrum_pos_peak_valid) {
-		if (neg_peak_mag >= (SPECTRUM_PEAK_DOMINANCE_RATIO * pos_peak_mag)) {
-			spectrum_pos_peak_valid = false;
-			spectrum_pos_peak_hz = 0.0f;
-		} else if (pos_peak_mag >= (SPECTRUM_PEAK_DOMINANCE_RATIO * neg_peak_mag)) {
-			spectrum_neg_peak_valid = false;
-			spectrum_neg_peak_hz = 0.0f;
-		}
 	}
 }
 
