@@ -39,30 +39,7 @@
 /******************************************************************************
  * Defines
  *****************************************************************************/
-// Display refresh loop limits for each menu (to prevent flicker)
-#define DISP_LOOP_M0 	10	// Info screen
-#define DISP_LOOP_M1 	0   // Time signal (refresh on every new I/Q block)
-#define DISP_LOOP_M2 	0	// Spectrum analyzer (refresh on every new I/Q block)
-#define DISP_LOOP_M3 	4	// Effect Menu (Filter Selection)
-#define DISP_LOOP_M4 	4	// Level meter
-#define DISP_LOOP_M5 	4	// Frequency peak readout
-#define DISP_LOOP_M6 	4	// ...
-#define DISP_LOOP_M7 	4	// ...
-#define DISP_LOOP_M8 	4	// ...
-#define DISP_LOOP_M9 	4	// EKG BPM
-#define DISP_LOOP_M10 	4	// DAC output
-
-// Define the maximum number of points for the time signal (Display 240 x 320 pixels)
-#define MAX_TIME_SIGNAL_POINTS 240
-
-// Define time_signal_points based on RADAR_CHANNEL_SAMPLES, ensuring it's capped at MAX_TIME_SIGNAL_POINTS
-#define TIME_SIGNAL_POINTS (RADAR_CHANNEL_SAMPLES > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : RADAR_CHANNEL_SAMPLES)
-
-#define TIME_SIGNAL_MIN_SPAN     4.0f
-#define TIME_SIGNAL_HEADROOM     0.10f
 #define SPECTRUM_DISPLAY_HZ      4.0f
-#define SPECTRUM_MIN_DISPLAY_MAX 0.001f
-#define SPECTRUM_HEADROOM        1.15f
 #define SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
 #define SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
 #define DAC_TOUCH_STEP_VOLTAGE   0.1f
@@ -95,7 +72,6 @@ static float32_t spectrum_neg_peak_hz = 0.0f;
 static bool spectrum_pos_peak_valid = false;
 static bool spectrum_neg_peak_valid = false;
 
-static uint32_t disp_loop_count[MENU_TOTAL_ENTRIES] = {0}; // Loop counters for refreshing display menus
 static bool disp_refresh;			///< Display should be refreshed
 
 static uint8_t effect_active = 0;
@@ -123,15 +99,12 @@ static bool dac_touch_was_detected = false;
 static void SystemClock_Config(void);	///< System Clock Configuration
 static void gyro_disable(void);			///< Disable the onboard gyroscope
 static void error_handling(HAL_StatusTypeDef error);
-static uint32_t menu_get_refresh_limit(MENU_item_t menu_item);
 static void menu_request_refresh(MENU_item_t menu_item, bool immediate);
 static void touch_get_adjusted_state(TS_StateTypeDef *touch_state);
 static bool touch_is_inside_rect(uint16_t x, uint16_t y, uint16_t rect_x,
 		uint16_t rect_y, uint16_t rect_width, uint16_t rect_height);
 static void dac_output_step(float delta_voltage);
 static bool dac_output_handle_touch(void);
-static void disp_peak_frequencies(void);
-static void disp_dac_output(void);
 
 /** ***************************************************************************
  * @brief  Main function
@@ -313,206 +286,32 @@ int main(void) {
 		}
 
 		if (disp_refresh) {
+			disp_menu_data_t menu_data;
 			disp_refresh = false;
 
-			switch (active_menu) {	// Show data for active user menu
-			case MENU_NONE:	// Display help screen
-				break;
-			case MENU_ZERO:	// Info screen
-				if (disp_loop_count[MENU_ZERO]++ >= DISP_LOOP_M0) {
-					disp_loop_count[MENU_ZERO] = 0;
-					disp_clear_data();
-					disp_info();
-				}
-				break;
-			case MENU_ONE:	// Time signal
-				if (disp_loop_count[MENU_ONE]++ >= DISP_LOOP_M1) {
-					uint32_t signal_start;
-					float32_t signal_min;
-					float32_t signal_max;
-					disp_loop_count[MENU_ONE] = 0;
-					signal_start = radar_get_recent_start_index(TIME_SIGNAL_POINTS);
-					radar_get_time_scale(radar_i_samples, radar_q_samples,
-							signal_start, TIME_SIGNAL_POINTS,
-							TIME_SIGNAL_MIN_SPAN, TIME_SIGNAL_HEADROOM,
-							&signal_min, &signal_max);
-					disp_clear_data();
-					disp_curves(&radar_i_samples[signal_start], TIME_SIGNAL_POINTS,
-							signal_min,
-							signal_max,
-							LCD_COLOR_RED);
-					disp_curves(&radar_q_samples[signal_start], TIME_SIGNAL_POINTS,
-							signal_min,
-							signal_max,
-							LCD_COLOR_BLUE);
-				}
-				break;
-			case MENU_TWO: // Frequency spectrum
-				if (disp_loop_count[MENU_TWO]++ >= DISP_LOOP_M2) {
-					uint32_t spectrum_start;
-					uint32_t spectrum_count;
-					float32_t spectrum_max;
-					disp_loop_count[MENU_TWO] = 0;
-					radar_get_spectrum_window(spectrum_shifted,
-							SPECTRUM_DISPLAY_HZ,
-							SPECTRUM_MIN_DISPLAY_MAX,
-							SPECTRUM_HEADROOM,
-							&spectrum_start,
-							&spectrum_count,
-							&spectrum_max);
-					disp_clear_data();
-					BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
-					BSP_LCD_DrawLine(DISP_WIDTH / 2U, 0U, DISP_WIDTH / 2U, DISP_HEIGHT - 1U);
-					disp_curves(&spectrum_shifted[spectrum_start], spectrum_count, 0.0f,
-							spectrum_max, LCD_COLOR_BLUE);
-					BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-					BSP_LCD_SetFont(&Font12);
-					BSP_LCD_DisplayStringAt(2, 2, (uint8_t*) "-4 Hz", LEFT_MODE);
-					BSP_LCD_DisplayStringAt(0, 2, (uint8_t*) "0 Hz", CENTER_MODE);
-					BSP_LCD_DisplayStringAt(DISP_WIDTH - 36U, 2, (uint8_t*) "+4 Hz",
-							LEFT_MODE);
-				}
-				break;
-			case MENU_THREE:	// Effect Menu (Filter Selection)
-				if (disp_loop_count[MENU_THREE]++ >= DISP_LOOP_M3) {
-					disp_loop_count[MENU_THREE] = 0;
-					disp_clear_data();
-					
-					// Display full-screen filter list with color highlighting for active filter
-					BSP_LCD_SetFont(&Font24);
-					
-					// Calculate vertical spacing for 5 filters (280px height / 5 = 56px per item)
-					const uint32_t start_y = 28;  // Start position (half spacing)
-					const uint32_t spacing = 56;   // Vertical spacing between items
-					
-					// Display all 5 filter types
-					for (uint8_t i = 0; i < 5; i++) {
-						uint32_t y_pos = start_y + (i * spacing);
-						
-						// Set color: green for active filter, grey for others
-						if (i == current_filter_index) {
-							BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-						} else {
-							BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
-						}
-						
-						// Display filter name centered
-						BSP_LCD_DisplayStringAt(0, y_pos, (uint8_t*)filter_names[i], CENTER_MODE);
-					}
-				}
-				break;
-			case MENU_FOUR:	// Level meter
-				if (disp_loop_count[MENU_FOUR]++ >= DISP_LOOP_M4) {
-					disp_loop_count[MENU_FOUR] = 0;
-					disp_clear_data();
-					disp_level(-10, -5, -12, -6); // TODO
-				}
-				break;
-			case MENU_FIVE: // Frequency peak readout
-				if (disp_loop_count[MENU_FIVE]++ >= DISP_LOOP_M5) {
-					disp_loop_count[MENU_FIVE] = 0;
-					disp_peak_frequencies();
-				}
-				break;
-			case MENU_SIX:
-			case MENU_SEVEN:
-			case MENU_EIGHT:
-				// ToDo ....
-				break;
-			case MENU_NINE:	// EKG BPM
-				if (disp_loop_count[MENU_NINE]++ >= DISP_LOOP_M9) {
-					char text[32];
-					uint32_t now = HAL_GetTick();
-					disp_loop_count[MENU_NINE] = 0;
-					disp_clear_data();
+			menu_data.radar_i_samples = radar_i_samples;
+			menu_data.radar_q_samples = radar_q_samples;
+			menu_data.spectrum_shifted = spectrum_shifted;
+			menu_data.current_filter_index = current_filter_index;
+			menu_data.filter_names = filter_names;
+			menu_data.ekg_latest = ekg_latest;
+			menu_data.ekg_last_peak_tick = ekg_last_peak_tick;
+			menu_data.spectrum_pos_peak_hz = spectrum_pos_peak_hz;
+			menu_data.spectrum_neg_peak_hz = spectrum_neg_peak_hz;
+			menu_data.spectrum_pos_peak_valid = spectrum_pos_peak_valid;
+			menu_data.spectrum_neg_peak_valid = spectrum_neg_peak_valid;
 
-					BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-					BSP_LCD_SetFont(&Font20);
-					BSP_LCD_DisplayStringAt(0, 10, (uint8_t*) "EKG Monitor", CENTER_MODE);
-
-					BSP_LCD_SetFont(&Font24);
-					if (ekg_latest.bpm_valid) {
-						snprintf(text, sizeof(text), "BPM: %3d", (int) (ekg_latest.bpm + 0.5f));
-						BSP_LCD_SetTextColor(LCD_COLOR_RED);
-					} else {
-						snprintf(text, sizeof(text), "BPM: ---");
-						BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
-					}
-					BSP_LCD_DisplayStringAt(0, 70, (uint8_t*) text, CENTER_MODE);
-
-					BSP_LCD_SetFont(&Font16);
-					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-					snprintf(text, sizeof(text), "ADC: %4u", (unsigned int) ekg_latest.raw);
-					BSP_LCD_DisplayStringAt(0, 130, (uint8_t*) text, CENTER_MODE);
-
-					if ((now - ekg_last_peak_tick) < 140U) {
-						BSP_LCD_SetTextColor(LCD_COLOR_RED);
-						BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "R-PEAK", CENTER_MODE);
-					} else {
-						BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
-						BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "      ", CENTER_MODE);
-					}
-
-					BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-					snprintf(text, sizeof(text), "Overrun: %lu",
-							(unsigned long) ekg_get_overrun_count());
-					BSP_LCD_DisplayStringAt(0, 210, (uint8_t*) text, CENTER_MODE);
-				}
-				break;
-			case MENU_TEN:	// DAC output on PA5
-				if (disp_loop_count[MENU_TEN]++ >= DISP_LOOP_M10) {
-					disp_loop_count[MENU_TEN] = 0;
-					disp_clear_data();
-					disp_dac_output();
-				}
-				break;
-			default:
-				// Should never occur
-				break;
-			}
-			//BSP_LED_Off(LED4);
-
+			disp_menu_render(active_menu, &menu_data);
 		}
 
-	}
-}
-
-static uint32_t menu_get_refresh_limit(MENU_item_t menu_item) {
-	switch (menu_item) {
-	case MENU_ZERO:
-		return DISP_LOOP_M0;
-	case MENU_ONE:
-		return DISP_LOOP_M1;
-	case MENU_TWO:
-		return DISP_LOOP_M2;
-	case MENU_THREE:
-		return DISP_LOOP_M3;
-	case MENU_FOUR:
-		return DISP_LOOP_M4;
-	case MENU_FIVE:
-		return DISP_LOOP_M5;
-	case MENU_SIX:
-		return DISP_LOOP_M6;
-	case MENU_SEVEN:
-		return DISP_LOOP_M7;
-	case MENU_EIGHT:
-		return DISP_LOOP_M8;
-	case MENU_NINE:
-		return DISP_LOOP_M9;
-	case MENU_TEN:
-		return DISP_LOOP_M10;
-	default:
-		return 0U;
 	}
 }
 
 static void menu_request_refresh(MENU_item_t menu_item, bool immediate) {
 	disp_refresh = true;
 
-	if (immediate && (menu_item >= MENU_ZERO) && (menu_item <= MENU_TEN)) {
-		disp_loop_count[menu_item] = menu_get_refresh_limit(menu_item);
+	if (immediate) {
+		disp_menu_force_refresh(menu_item);
 	}
 }
 
@@ -584,105 +383,6 @@ static bool dac_output_handle_touch(void)
 	}
 
 	return (old_code != dac_output_get_code());
-}
-
-static void disp_peak_frequencies(void)
-{
-	char text[32];
-
-	disp_clear_data();
-
-	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-
-	BSP_LCD_SetFont(&Font20);
-	BSP_LCD_DisplayStringAt(0, 10, (uint8_t*) "Peak Frequencies", CENTER_MODE);
-
-	BSP_LCD_SetFont(&Font16);
-	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	BSP_LCD_DisplayStringAt(0, 58, (uint8_t*) "Positive peak", CENTER_MODE);
-
-	BSP_LCD_SetFont(&Font24);
-	if (spectrum_pos_peak_valid) {
-		snprintf(text, sizeof(text), "%+.2f Hz", spectrum_pos_peak_hz);
-		BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-	} else {
-		snprintf(text, sizeof(text), "--- Hz");
-		BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
-	}
-	BSP_LCD_DisplayStringAt(0, 84, (uint8_t*) text, CENTER_MODE);
-
-	BSP_LCD_SetFont(&Font16);
-	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	BSP_LCD_DisplayStringAt(0, 158, (uint8_t*) "Negative peak", CENTER_MODE);
-
-	BSP_LCD_SetFont(&Font24);
-	if (spectrum_neg_peak_valid) {
-		snprintf(text, sizeof(text), "%+.2f Hz", spectrum_neg_peak_hz);
-		BSP_LCD_SetTextColor(LCD_COLOR_RED);
-	} else {
-		snprintf(text, sizeof(text), "--- Hz");
-		BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
-	}
-	BSP_LCD_DisplayStringAt(0, 184, (uint8_t*) text, CENTER_MODE);
-}
-
-static void disp_dac_output(void)
-{
-	char text[32];
-	uint32_t millivolts = (uint32_t) ((dac_output_get_voltage() * 1000.0f) + 0.5f);
-	uint16_t code = dac_output_get_code();
-	uint32_t fill_width = ((uint32_t) code * DAC_SLIDER_WIDTH) / DAC_OUTPUT_MAX_CODE;
-	uint32_t marker_x = DAC_SLIDER_X
-			+ (((uint32_t) code * (DAC_SLIDER_WIDTH - 1U)) / DAC_OUTPUT_MAX_CODE);
-
-	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-
-	BSP_LCD_SetFont(&Font20);
-	BSP_LCD_DisplayStringAt(0, 12, (uint8_t*) "DAC Output PA5", CENTER_MODE);
-
-	BSP_LCD_SetFont(&Font24);
-	snprintf(text, sizeof(text), "%lu.%03lu V",
-			(unsigned long) (millivolts / 1000U),
-			(unsigned long) (millivolts % 1000U));
-	BSP_LCD_DisplayStringAt(0, 48, (uint8_t*) text, CENTER_MODE);
-
-	BSP_LCD_SetFont(&Font16);
-	snprintf(text, sizeof(text), "Code: %4u / %u", code, DAC_OUTPUT_MAX_CODE);
-	BSP_LCD_DisplayStringAt(0, 84, (uint8_t*) text, CENTER_MODE);
-
-	BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
-	BSP_LCD_FillRect(DAC_SLIDER_X, DAC_SLIDER_Y, DAC_SLIDER_WIDTH, DAC_SLIDER_HEIGHT);
-	if (fill_width > 0U) {
-		BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGREEN);
-		BSP_LCD_FillRect(DAC_SLIDER_X, DAC_SLIDER_Y, fill_width, DAC_SLIDER_HEIGHT);
-	}
-	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	BSP_LCD_DrawRect(DAC_SLIDER_X, DAC_SLIDER_Y, DAC_SLIDER_WIDTH, DAC_SLIDER_HEIGHT);
-	BSP_LCD_DrawVLine((uint16_t) marker_x, DAC_SLIDER_Y - 6U, DAC_SLIDER_HEIGHT + 12U);
-	BSP_LCD_SetFont(&Font12);
-	BSP_LCD_DisplayStringAt(DAC_SLIDER_X, DAC_SLIDER_Y + DAC_SLIDER_HEIGHT + 10U,
-			(uint8_t*) "0.0V", LEFT_MODE);
-	BSP_LCD_DisplayStringAt(DAC_SLIDER_X + DAC_SLIDER_WIDTH - 34U,
-			DAC_SLIDER_Y + DAC_SLIDER_HEIGHT + 10U, (uint8_t*) "3.3V", LEFT_MODE);
-
-	BSP_LCD_SetTextColor(LCD_COLOR_LIGHTBLUE);
-	BSP_LCD_FillRect(DAC_MINUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
-	BSP_LCD_FillRect(DAC_PLUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
-	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	BSP_LCD_DrawRect(DAC_MINUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
-	BSP_LCD_DrawRect(DAC_PLUS_X, DAC_BUTTON_Y, DAC_BUTTON_WIDTH, DAC_BUTTON_HEIGHT);
-	BSP_LCD_SetBackColor(LCD_COLOR_LIGHTBLUE);
-	BSP_LCD_SetFont(&Font24);
-	BSP_LCD_DisplayStringAt(DAC_MINUS_X + 26U, DAC_BUTTON_Y + 8U, (uint8_t*) "-",
-			LEFT_MODE);
-	BSP_LCD_DisplayStringAt(DAC_PLUS_X + 28U, DAC_BUTTON_Y + 8U, (uint8_t*) "+",
-			LEFT_MODE);
-
-	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-	BSP_LCD_SetFont(&Font16);
-	BSP_LCD_DisplayStringAt(0, 244, (uint8_t*) "Tap bar or +/- 0.1 V", CENTER_MODE);
 }
 
 /** ***************************************************************************

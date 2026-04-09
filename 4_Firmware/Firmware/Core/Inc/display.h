@@ -13,9 +13,11 @@
  * Includes
  *****************************************************************************/
 #include <stdbool.h>
+#include "stm32f4xx.h"
 #include "arm_math.h"
 
 #include "menu.h"
+#include "ekg.h"
 
 /******************************************************************************
  * Defines
@@ -26,6 +28,19 @@
 /******************************************************************************
  * Variables
  *****************************************************************************/
+typedef struct {
+	const float32_t *radar_i_samples;
+	const float32_t *radar_q_samples;
+	const float32_t *spectrum_shifted;
+	uint8_t current_filter_index;
+	const char * const *filter_names;
+	ekg_output_t ekg_latest;
+	uint32_t ekg_last_peak_tick;
+	float32_t spectrum_pos_peak_hz;
+	float32_t spectrum_neg_peak_hz;
+	bool spectrum_pos_peak_valid;
+	bool spectrum_neg_peak_valid;
+} disp_menu_data_t;
 
 /******************************************************************************
  * Functions
@@ -36,5 +51,7 @@ void disp_curves(float32_t data[], uint32_t count, float32_t min, float32_t max,
 void disp_bars(float32_t data[], uint32_t count, float32_t min, float32_t max, uint32_t color);
 void disp_level(float32_t avg_l, float32_t peak_l, float32_t avg_r, float32_t peak_r);
 void disp_info(void);
+void disp_menu_force_refresh(MENU_item_t menu_item);
+void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data);
 
 #endif
