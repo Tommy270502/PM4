@@ -34,8 +34,8 @@
 #define DISP_LOOP_M1 	0   // Time signal (refresh on every new I/Q block)
 #define DISP_LOOP_M2 	0	// Spectrum analyzer (refresh on every new I/Q block)
 #define DISP_LOOP_M3 	4	// Effect Menu (Filter Selection)
-#define DISP_LOOP_M4 	4	// Level meter
-#define DISP_LOOP_M5 	4	// Frequency peak readout
+#define DISP_LOOP_M4 	4	// Frequency peak readout
+#define DISP_LOOP_M5 	4	// Level meter
 #define DISP_LOOP_M6 	4	// ...
 #define DISP_LOOP_M7 	4	// ...
 #define DISP_LOOP_M8 	4	// ...
@@ -71,6 +71,7 @@ static uint32_t disp_menu_loop_count[MENU_TOTAL_ENTRIES] = {0};
  *****************************************************************************/
 static uint32_t disp_menu_get_refresh_limit(MENU_item_t menu_item);
 static void disp_peak_frequencies(const disp_menu_data_t *data);
+static void disp_format_frequency_hz(char text[], size_t text_size, float32_t frequency_hz);
 static void disp_dac_output(void);
 
 /** ***************************************************************************
@@ -423,15 +424,15 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         if (disp_menu_loop_count[MENU_FOUR]++ >= DISP_LOOP_M4)
         {
             disp_menu_loop_count[MENU_FOUR] = 0;
-            disp_clear_data();
-            disp_level(-10, -5, -12, -6);
+            disp_peak_frequencies(data);
         }
         break;
     case MENU_FIVE:
         if (disp_menu_loop_count[MENU_FIVE]++ >= DISP_LOOP_M5)
         {
             disp_menu_loop_count[MENU_FIVE] = 0;
-            disp_peak_frequencies(data);
+            disp_clear_data();
+            disp_level(-10, -5, -12, -6);
         }
         break;
     case MENU_SIX:
@@ -550,7 +551,7 @@ static void disp_peak_frequencies(const disp_menu_data_t *data)
     BSP_LCD_SetFont(&Font24);
     if (data->spectrum_pos_peak_valid)
     {
-        snprintf(text, sizeof(text), "%+.2f Hz", data->spectrum_pos_peak_hz);
+        disp_format_frequency_hz(text, sizeof(text), data->spectrum_pos_peak_hz);
         BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
     }
     else
@@ -567,7 +568,7 @@ static void disp_peak_frequencies(const disp_menu_data_t *data)
     BSP_LCD_SetFont(&Font24);
     if (data->spectrum_neg_peak_valid)
     {
-        snprintf(text, sizeof(text), "%+.2f Hz", data->spectrum_neg_peak_hz);
+        disp_format_frequency_hz(text, sizeof(text), data->spectrum_neg_peak_hz);
         BSP_LCD_SetTextColor(LCD_COLOR_RED);
     }
     else
@@ -576,6 +577,33 @@ static void disp_peak_frequencies(const disp_menu_data_t *data)
         BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
     }
     BSP_LCD_DisplayStringAt(0, 184, (uint8_t*) text, CENTER_MODE);
+}
+
+static void disp_format_frequency_hz(char text[], size_t text_size, float32_t frequency_hz)
+{
+    float32_t abs_frequency_hz;
+    uint32_t milli_hz;
+    uint32_t whole_hz;
+    uint32_t fractional_milli_hz;
+    char sign;
+
+    if ((text == 0) || (text_size == 0U))
+    {
+        return;
+    }
+
+    sign = (frequency_hz < 0.0f) ? '-' : '+';
+    abs_frequency_hz = (frequency_hz < 0.0f) ? -frequency_hz : frequency_hz;
+
+    /* Avoid `%f` so formatting works even when printf-float is not linked. */
+    milli_hz = (uint32_t) ((abs_frequency_hz * 1000.0f) + 0.5f);
+    whole_hz = milli_hz / 1000U;
+    fractional_milli_hz = milli_hz % 1000U;
+
+    snprintf(text, text_size, "%c%lu.%03lu Hz",
+        sign,
+        (unsigned long) whole_hz,
+        (unsigned long) fractional_milli_hz);
 }
 
 static void disp_dac_output(void)
