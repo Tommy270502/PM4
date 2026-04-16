@@ -21,6 +21,8 @@
 | HW-1.03 | **Radar reference voltage** | Power the PCB under nominal operating conditions | Reference voltage = **1.65 V ± 16.5 mV** and stable | 1.6470 V | <span style="color:green;">**passed**</span> | --- |
 | HW-1.04 | **VCO_in DC transfer check** | Apply a constant **1 V DC** level to the **VCO_in** path | Output at VCO_in pin = **1.1 V DC ± 1%** and stable | 1.0971 V | <span style="color:green;">**passed**</span> | ---|
 
+<div class="page"/>
+
 ## 2. I/Q Channel Tests
 
 ### 2.1 Test parameters
@@ -43,6 +45,8 @@
 - Simultaneous I/Q checks pass if both channels satisfy the corresponding single-channel criteria under the same input condition
 - Channel-matching checks pass if I/Q gain difference and phase difference do not exceed the stated tolerance across the passband
 - Crosstalk / channel-isolation checks pass if the inactive grounded channel shows no unintended amplified response beyond the stated tolerance while the other channel is driven
+
+<div class="page"/>
 
 ### 2.3 Test plan
 
