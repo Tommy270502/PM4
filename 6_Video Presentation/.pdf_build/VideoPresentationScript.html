@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VideoPresentationScript</title>
+  <base href="file:///C:/Users/Thomas/Documents/git/PM4/6_Video%20Presentation/">
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 14mm 16mm 14mm;
+    }
+
+    :root {
+      color-scheme: light;
+      --ink: #18222d;
+      --muted: #4a5a6a;
+      --border: #b8c8d8;
+      --panel: #eef4fa;
+      --panel-alt: #f8fbfe;
+      --accent: #0d5e86;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Segoe UI", Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0 0 0.45em;
+      color: var(--accent);
+      line-height: 1.2;
+      page-break-after: avoid;
+    }
+
+    h1 {
+      font-size: 22pt;
+      margin-top: 0;
+      padding-bottom: 0.2em;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    h2 {
+      font-size: 15pt;
+      margin-top: 1.35em;
+    }
+
+    p {
+      margin: 0.3em 0 0.85em;
+    }
+
+    ul {
+      margin: 0.35em 0 0.95em 1.2em;
+      padding: 0;
+    }
+
+    li {
+      margin: 0.2em 0;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95em;
+      background: #edf1f5;
+      padding: 0.08em 0.32em;
+      border-radius: 3px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.8em 0 1.15em;
+      table-layout: fixed;
+      page-break-inside: auto;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    th {
+      background: var(--panel);
+      font-weight: 700;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: var(--panel-alt);
+    }
+
+    th:nth-child(1), td:nth-child(1) {
+      width: 50%;
+    }
+
+    th:nth-child(2), td:nth-child(2) {
+      width: 38%;
+    }
+
+    th:nth-child(3), td:nth-child(3) {
+      width: 12%;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+<h1>Video Presentation Script</h1>
+<p>Aligned with:</p>
+<ul><li><code>ET-PM4-SW9-VideoPresentationRequirements.pdf</code></li><li><code>ET-PM4-SW9-VideoPresentation-Script.pdf</code></li><li><code>OnePager.pdf</code></li><li>current firmware features in the STM32 project</li></ul>
+<p>Target length: about 2 minutes 40 seconds</p>
+<h2>Contactless Radar-Based Heart Rate Monitoring Device</h2>
+<table><thead><tr><th>Text / Voiceover</th><th>Action on Screen</th><th>Time</th></tr></thead><tbody><tr><td>none</td><td>Static title slide with minimal text: <code>Contactless Radar-Based Heart Rate Monitoring Device</code>, <code>ZHAW PM4 Electronics Project</code>, <code>Thomas Perri</code>, <code>Bogdans Grebnevs</code></td><td>0:00-0:08</td></tr><tr><td>Our project is a contactless radar-based heart rate monitoring device. It detects tiny chest movements without electrodes or wearable sensors, processes the signal in real time on an STM32F4, and displays the result on an integrated touchscreen interface.</td><td>Static feature slide with only 4 short bullets: <code>Contactless</code>, <code>Real-time</code>, <code>Touchscreen UI</code>, <code>ECG reference comparison</code></td><td>0:09-0:22</td></tr><tr><td>The motivation is simple: heart rate is important in healthcare, sleep monitoring, and safety applications, but most systems still require direct contact with the body. That can be uncomfortable or impractical for long measurements, sleeping users, or sensitive patients.</td><td>Static slide with one use-case image of a sleeping person and one of patient monitoring. Minimal text: <code>comfortable</code>, <code>continuous</code>, <code>contact-free</code></td><td>0:23-0:38</td></tr><tr><td>Our goal is to show that Doppler radar can be used as a practical embedded solution for contactless heart-rate monitoring at short range.</td><td>Static transition slide with one sentence and a simplified radar icon</td><td>0:39-0:46</td></tr><tr><td>The core idea is Doppler sensing. A microwave radar module transmits a signal toward the chest. Very small chest movements caused by cardiac activity change the phase of the reflected signal. These changes are then measured and analyzed.</td><td>Short animated video or recorded PowerPoint animation of person, radar beam, reflected signal, and moving chest</td><td>0:47-1:02</td></tr><tr><td>The hardware platform combines the K-LC5 Doppler radar module with an STM32F429 Discovery board. The embedded system acquires I and Q radar channels, performs on-board signal processing, and renders the results directly on the display.</td><td>Static block diagram: <code>Radar module -&gt; analog front end -&gt; STM32F429 -&gt; LCD touchscreen</code> Then cut to a short live video of the real hardware</td><td>1:03-1:18</td></tr><tr><td>In firmware, the radar signals are sampled at 100 hertz. We process 512 samples per channel, which corresponds to a 5.12 second analysis window. The window advances every 2.56 seconds with 50 percent overlap, allowing continuous updates.</td><td>Static slide with simple processing pipeline and the numbers <code>100 Hz</code>, <code>512 samples</code>, <code>5.12 s window</code>, <code>2.56 s update</code></td><td>1:19-1:37</td></tr><tr><td>After acquisition, the STM32 applies filtering, computes the frequency spectrum, and detects dominant peaks. The current firmware also supports multiple selectable filter modes, including bypass, low-pass, high-pass, band-pass, and notch filtering.</td><td>Recorded video of the device switching between the time-domain screen, FFT spectrum, and effect menu. Keep on-screen labels visible, no extra text overlay</td><td>1:38-1:57</td></tr><tr><td>The user interface is designed to make the signal processing transparent. It includes a time-signal view, an FFT spectrum view, peak-frequency readout, and an ECG monitor page for reference measurements.</td><td>Live video recording of the touchscreen UI. Show at least: <code>Time Signal</code>, <code>FFT Spectr</code>, <code>Peak Detect</code>, and <code>EKG BPM</code></td><td>1:58-2:16</td></tr><tr><td>This is one of the main strengths of the project: the system does not only measure radar data, it also visualizes the intermediate steps. That makes debugging easier and helps the user understand how the heart-rate estimate is generated.</td><td>Continue live UI video. Brief zoom or crop on the spectrum peak readout and ECG BPM page</td><td>2:17-2:30</td></tr><tr><td>Another advantage is that the full processing chain runs directly on the embedded platform. No external PC is required during operation, and the touchscreen interface allows direct interaction with the system.</td><td>Short live video of standalone operation on the board and touchscreen interaction</td><td>2:31-2:42</td></tr><tr><td>In terms of technical characteristics, the current design targets short-range operation up to about one meter. The spectral display covers approximately plus or minus four hertz, and the FFT bin spacing is about 0.195 hertz, which corresponds to about 11.7 beats per minute per raw bin. Accuracy is evaluated by comparison with a reference ECG sensor.</td><td>Static summary slide with minimal text: <code>Range: up to ~1 m</code>, <code>Display span: +/-4 Hz</code>, <code>FFT resolution: 0.195 Hz</code>, <code>Reference: ECG comparison</code></td><td>2:43-2:58</td></tr><tr><td>In summary, our system offers contactless heart-rate monitoring, real-time embedded processing, a touchscreen-based user interface, and ECG-supported validation. This makes it a compact platform for comfortable vital-sign monitoring and further development.</td><td>Final slide with repeated main features and metadata: project title, authors, date, affiliation, and project link or repository link</td><td>2:59-3:10</td></tr></tbody></table>
+<h2>Final Slide Content</h2>
+<p>Use the last slide to repeat the required summary in compact form:</p>
+<ul><li>Contactless heart-rate monitoring</li><li>Short-range operation: up to about 1 m</li><li>Real-time embedded processing on STM32F429</li><li>Touchscreen UI with time, FFT, peak, and ECG pages</li><li>FFT bin spacing: about 0.195 Hz</li><li>Accuracy: add measured ECG comparison result here</li><li>Authors: Thomas Perri, Bogdans Grebnevs</li><li>Date: add recording or submission date</li><li>Link: add repository or demo link</li></ul>
+<h2>Before Recording</h2>
+<p>Replace these placeholders if you have the measured data:</p>
+<ul><li><code>Accuracy: add measured ECG comparison result here</code></li><li><code>Date: add recording or submission date</code></li><li><code>Link: add repository or demo link</code></li></ul>
+<p>If you do not have a validated accuracy number yet, keep the final slide honest and write:</p>
+<p><code>Accuracy currently under validation against reference ECG</code></p>
+</body>
+</html>
