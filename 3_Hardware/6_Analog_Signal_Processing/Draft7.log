@@ -1,0 +1,17 @@
+LTspice 26.0.1 for Windows
+Circuit: C:\Users\Thomas\Documents\git\PM4\3_Hardware\6_Analog_Signal_Processing\Draft7.net
+Start Time: Mon Apr  6 20:14:51 2026
+solver = Normal
+Maximum thread count: 16
+tnom = 27
+temp = 27
+method = trap
+Direct Newton iteration succeeded in finding operating point.
+Total elapsed time: 0.075 seconds.
+
+Files loaded:
+C:\Users\Thomas\Documents\git\PM4\3_Hardware\6_Analog_Signal_Processing\Draft7.net
+C:\Users\Thomas\AppData\Local\LTspice\lib\cmp\standard.mos
+C:\Users\Thomas\AppData\Local\LTspice\lib\sub\ADI.lib
+C:\Users\Thomas\AppData\Local\LTspice\lib\sub\UniversalOpAmp1.lib
+
