@@ -35,6 +35,7 @@
 #include "radar.h"
 #include "filters.h"
 #include "ekg.h"
+#include "radar_heartrate.h"
 
 /******************************************************************************
  * Defines
@@ -92,6 +93,9 @@ static const char* filter_names[] = {
 static ekg_output_t ekg_latest = {0};
 static uint32_t ekg_last_peak_tick = 0;
 static bool dac_touch_was_detected = false;
+
+static radar_hr_state_t  radar_hr_state;
+static radar_hr_output_t radar_hr_output = {0};
 
 /******************************************************************************
  * Functions
@@ -177,6 +181,8 @@ int main(void) {
 	error_handling(ret_val);
 
 	ekg_init(NULL);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
+
+	radar_hr_init(&radar_hr_state, NULL);  // Radar HR estimator with defaults
 
 	/* Infinite while loop */
 	while (1) {							// Infinitely loop in main function
@@ -281,6 +287,8 @@ int main(void) {
 						&spectrum_pos_peak_valid,
 						&spectrum_neg_peak_valid);
 
+				radar_hr_process_frame(&radar_hr_state, spectrum_shifted, &radar_hr_output);
+
 				disp_refresh = true;      // Tell the display about the new data
 			}
 		}
@@ -300,6 +308,9 @@ int main(void) {
 			menu_data.spectrum_neg_peak_hz = spectrum_neg_peak_hz;
 			menu_data.spectrum_pos_peak_valid = spectrum_pos_peak_valid;
 			menu_data.spectrum_neg_peak_valid = spectrum_neg_peak_valid;
+			menu_data.radar_hr_bpm   = radar_hr_output.bpm;
+			menu_data.radar_hr_valid = radar_hr_output.valid;
+			menu_data.radar_hr_state = radar_hr_output.state;
 
 			disp_menu_render(active_menu, &menu_data);
 		}

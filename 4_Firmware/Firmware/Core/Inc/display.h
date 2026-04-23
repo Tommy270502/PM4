@@ -18,6 +18,7 @@
 
 #include "menu.h"
 #include "ekg.h"
+#include "radar_heartrate.h"
 
 /******************************************************************************
  * Defines
@@ -43,6 +44,10 @@ typedef struct {
 	float32_t spectrum_neg_peak_hz;
 	bool spectrum_pos_peak_valid;
 	bool spectrum_neg_peak_valid;
+	/* Radar heart-rate module output */
+	float32_t radar_hr_bpm;
+	bool      radar_hr_valid;
+	radar_hr_sm_state_t radar_hr_state;
 } disp_menu_data_t;
 
 /******************************************************************************

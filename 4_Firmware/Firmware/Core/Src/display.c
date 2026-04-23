@@ -436,6 +436,43 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_SIX:
+        if (disp_menu_loop_count[MENU_SIX]++ >= DISP_LOOP_M6)
+        {
+            char text[32];
+
+            disp_menu_loop_count[MENU_SIX] = 0;
+            disp_clear_data();
+
+            BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+            BSP_LCD_SetFont(&Font20);
+            BSP_LCD_DisplayStringAt(0, 10, (uint8_t*) "Radar BPM", CENTER_MODE);
+
+            BSP_LCD_SetFont(&Font24);
+            if (data->radar_hr_valid)
+            {
+                snprintf(text, sizeof(text), "BPM: %3d", (int)(data->radar_hr_bpm + 0.5f));
+                BSP_LCD_SetTextColor(LCD_COLOR_RED);
+            }
+            else
+            {
+                snprintf(text, sizeof(text), "BPM: ---");
+                BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+            }
+            BSP_LCD_DisplayStringAt(0, 70, (uint8_t*) text, CENTER_MODE);
+
+            BSP_LCD_SetFont(&Font16);
+            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+            if (data->radar_hr_state == RADAR_HR_LOCKED)
+            {
+                BSP_LCD_DisplayStringAt(0, 130, (uint8_t*) "LOCKED", CENTER_MODE);
+            }
+            else
+            {
+                BSP_LCD_DisplayStringAt(0, 130, (uint8_t*) "SEARCH", CENTER_MODE);
+            }
+        }
+        break;
     case MENU_SEVEN:
     case MENU_EIGHT:
         break;
