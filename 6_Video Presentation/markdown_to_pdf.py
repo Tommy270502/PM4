@@ -267,6 +267,9 @@ def print_to_pdf(markdown_path: Path, output_pdf: Path) -> None:
         html_path.resolve().as_uri(),
     ]
     subprocess.run(command, check=True)
+    
+    # Remove temporary HTML and Edge profile artifacts after a successful render.
+    shutil.rmtree(build_dir, ignore_errors=True)
 
 
 def main() -> None:
