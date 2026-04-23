@@ -105,7 +105,7 @@ If all candidates are discarded: reject frame, emit `valid = false`, do not upda
 
 ---
 
-### Step 7 — Temporal smoothing *(LOCKED, accepted frame only)*
+### Step 6 — Temporal smoothing *(LOCKED, accepted frame only)*
 
 1. Push `bpm_raw[i*]` into circular median buffer (size 3).
 2. `bpm_med = median(buffer)`.
