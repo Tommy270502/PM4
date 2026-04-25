@@ -26,6 +26,26 @@
 #define DISP_WIDTH		(BSP_LCD_GetXSize())
 #define DISP_HEIGHT		(BSP_LCD_GetYSize()-MENU_HEIGHT)
 
+/* Shared radar-spectrum span used by menu rendering and peak extraction. */
+#define SPECTRUM_DISPLAY_HZ      4.0f
+
+/* Shared DAC slider and button layout (MENU_TEN). */
+#define DAC_SLIDER_X             20U
+#define DAC_SLIDER_Y             120U
+#define DAC_SLIDER_WIDTH         200U
+#define DAC_SLIDER_HEIGHT        24U
+#define DAC_BUTTON_Y             185U
+#define DAC_BUTTON_WIDTH         85U
+#define DAC_BUTTON_HEIGHT        44U
+#define DAC_MINUS_X              20U
+#define DAC_PLUS_X               135U
+
+/* Shared OpenLog toggle button layout (MENU_SEVEN). */
+#define LOG_TOGGLE_X             30U
+#define LOG_TOGGLE_Y             140U
+#define LOG_TOGGLE_WIDTH         180U
+#define LOG_TOGGLE_HEIGHT        50U
+
 /******************************************************************************
  * Variables
  *****************************************************************************/

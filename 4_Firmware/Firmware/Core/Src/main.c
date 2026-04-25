@@ -41,27 +41,11 @@
 /******************************************************************************
  * Defines
  *****************************************************************************/
-#define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
 #define SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
 
 /* DAC display parameters */
 #define DAC_TOUCH_STEP_VOLTAGE   0.1f
-#define DAC_SLIDER_X             20U
-#define DAC_SLIDER_Y             120U
-#define DAC_SLIDER_WIDTH         200U
-#define DAC_SLIDER_HEIGHT        24U
-#define DAC_BUTTON_Y             185U
-#define DAC_BUTTON_WIDTH         85U
-#define DAC_BUTTON_HEIGHT        44U
-#define DAC_MINUS_X              20U
-#define DAC_PLUS_X               135U
-
-/* OpenLog toggle button hit-area (must match display.c layout) */
-#define LOG_TOGGLE_X             30U
-#define LOG_TOGGLE_Y             140U
-#define LOG_TOGGLE_WIDTH         180U
-#define LOG_TOGGLE_HEIGHT        50U
 
 
 /******************************************************************************

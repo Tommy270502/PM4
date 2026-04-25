@@ -49,26 +49,8 @@
 #define TIME_SIGNAL_HEADROOM     0.10f
 
 /* Spectrum analyzer display parameters (MENU_TWO) */
-#define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_MIN_DISPLAY_MAX 0.001f
 #define SPECTRUM_HEADROOM        1.15f
-
-/* DAC slider and button positions (MENU_TEN) */
-#define DAC_SLIDER_X             20U
-#define DAC_SLIDER_Y             120U
-#define DAC_SLIDER_WIDTH         200U
-#define DAC_SLIDER_HEIGHT        24U
-#define DAC_BUTTON_Y             185U
-#define DAC_BUTTON_WIDTH         85U
-#define DAC_BUTTON_HEIGHT        44U
-#define DAC_MINUS_X              20U
-#define DAC_PLUS_X               135U
-
-/* OpenLog logger toggle button (MENU_SEVEN) */
-#define LOG_TOGGLE_X             30U
-#define LOG_TOGGLE_Y             140U
-#define LOG_TOGGLE_WIDTH         180U
-#define LOG_TOGGLE_HEIGHT        50U
 
 /******************************************************************************
  * Variables
