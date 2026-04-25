@@ -20,11 +20,8 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 
-/******************************************************************************
- * Defines
- *****************************************************************************/
 /** Maximum formatted CSV row length including \r\n and NUL terminator. */
-#define OPENLOG_LINE_BUF_SIZE   80U
+enum { OPENLOG_LINE_BUF_SIZE = 80U };
 
 /** CSV header string written on every OFF->ON transition. */
 static const char openlog_csv_header[] = "tick_ms,bpm,valid,state\r\n";

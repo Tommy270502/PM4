@@ -27,33 +27,31 @@
 #include "ekg.h"
 
 /******************************************************************************
- * Defines
- *****************************************************************************/
-#define DISP_LOOP_M0 	10	// Info screen
-#define DISP_LOOP_M1 	0   // Time signal (refresh on every new I/Q block)
-#define DISP_LOOP_M2 	0	// Spectrum analyzer (refresh on every new I/Q block)
-#define DISP_LOOP_M3 	4	// Effect Menu (Filter Selection)
-#define DISP_LOOP_M4 	4	// Frequency peak readout
-#define DISP_LOOP_M5 	4	// Level meter
-#define DISP_LOOP_M6 	4	// ...
-#define DISP_LOOP_M7 	4	// ...
-#define DISP_LOOP_M8 	4	// ...
-#define DISP_LOOP_M9 	4	// EKG BPM
-#define DISP_LOOP_M10 	4	// DAC output
-
-/* Time signal display parameters (MENU_ONE) */
-#define MAX_TIME_SIGNAL_POINTS 240
-#define TIME_SIGNAL_POINTS (RADAR_CHANNEL_SAMPLES > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : RADAR_CHANNEL_SAMPLES)
-#define TIME_SIGNAL_MIN_SPAN     4.0f
-#define TIME_SIGNAL_HEADROOM     0.10f
-
-/* Spectrum analyzer display parameters (MENU_TWO) */
-#define SPECTRUM_MIN_DISPLAY_MAX 0.001f
-#define SPECTRUM_HEADROOM        1.15f
-
-/******************************************************************************
  * Variables
  *****************************************************************************/
+static const uint32_t disp_menu_refresh_limit[MENU_TOTAL_ENTRIES] = {
+    [MENU_ZERO] = 10U,
+    [MENU_ONE] = 0U,
+    [MENU_TWO] = 0U,
+    [MENU_THREE] = 4U,
+    [MENU_FOUR] = 4U,
+    [MENU_FIVE] = 4U,
+    [MENU_SIX] = 4U,
+    [MENU_SEVEN] = 4U,
+    [MENU_EIGHT] = 4U,
+    [MENU_NINE] = 4U,
+    [MENU_TEN] = 4U,
+};
+
+/* Time signal display parameters (MENU_ONE). */
+static const uint32_t disp_max_time_signal_points = 240U;
+static const float32_t disp_time_signal_min_span = 4.0f;
+static const float32_t disp_time_signal_headroom = 0.10f;
+
+/* Spectrum analyzer display parameters (MENU_TWO). */
+static const float32_t disp_spectrum_min_display_max = 0.001f;
+static const float32_t disp_spectrum_headroom = 1.15f;
+
 static uint32_t disp_menu_loop_count[MENU_TOTAL_ENTRIES] = {0};
 
 /******************************************************************************
@@ -325,7 +323,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
     case MENU_NONE:
         break;
     case MENU_ZERO:
-        if (disp_menu_loop_count[MENU_ZERO]++ >= DISP_LOOP_M0)
+        if (disp_menu_loop_count[MENU_ZERO]++ >= disp_menu_get_refresh_limit(MENU_ZERO))
         {
             disp_menu_loop_count[MENU_ZERO] = 0;
             disp_clear_data();
@@ -333,27 +331,31 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_ONE:
-        if (disp_menu_loop_count[MENU_ONE]++ >= DISP_LOOP_M1)
+        if (disp_menu_loop_count[MENU_ONE]++ >= disp_menu_get_refresh_limit(MENU_ONE))
         {
             uint32_t signal_start;
+            uint32_t signal_points;
             float32_t signal_min;
             float32_t signal_max;
 
             disp_menu_loop_count[MENU_ONE] = 0;
-            signal_start = radar_get_recent_start_index(TIME_SIGNAL_POINTS);
+            signal_points = (RADAR_CHANNEL_SAMPLES > disp_max_time_signal_points)
+                    ? disp_max_time_signal_points
+                    : RADAR_CHANNEL_SAMPLES;
+            signal_start = radar_get_recent_start_index(signal_points);
             radar_get_time_scale(data->radar_i_samples, data->radar_q_samples,
-                        signal_start, TIME_SIGNAL_POINTS,
-                        TIME_SIGNAL_MIN_SPAN, TIME_SIGNAL_HEADROOM,
+                        signal_start, signal_points,
+                        disp_time_signal_min_span, disp_time_signal_headroom,
                         &signal_min, &signal_max);
             disp_clear_data();
-            disp_curves((float32_t*) &data->radar_i_samples[signal_start], TIME_SIGNAL_POINTS,
+            disp_curves((float32_t*) &data->radar_i_samples[signal_start], signal_points,
                     signal_min, signal_max, LCD_COLOR_RED);
-            disp_curves((float32_t*) &data->radar_q_samples[signal_start], TIME_SIGNAL_POINTS,
+            disp_curves((float32_t*) &data->radar_q_samples[signal_start], signal_points,
                     signal_min, signal_max, LCD_COLOR_BLUE);
         }
         break;
     case MENU_TWO:
-        if (disp_menu_loop_count[MENU_TWO]++ >= DISP_LOOP_M2)
+        if (disp_menu_loop_count[MENU_TWO]++ >= disp_menu_get_refresh_limit(MENU_TWO))
         {
             uint32_t spectrum_start;
             uint32_t spectrum_count;
@@ -362,8 +364,8 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
             disp_menu_loop_count[MENU_TWO] = 0;
             radar_get_spectrum_window(data->spectrum_shifted,
                         SPECTRUM_DISPLAY_HZ,
-                        SPECTRUM_MIN_DISPLAY_MAX,
-                        SPECTRUM_HEADROOM,
+                        disp_spectrum_min_display_max,
+                        disp_spectrum_headroom,
                         &spectrum_start,
                         &spectrum_count,
                         &spectrum_max);
@@ -381,7 +383,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_THREE:
-        if (disp_menu_loop_count[MENU_THREE]++ >= DISP_LOOP_M3)
+        if (disp_menu_loop_count[MENU_THREE]++ >= disp_menu_get_refresh_limit(MENU_THREE))
         {
             const uint32_t start_y = 28U;
             const uint32_t spacing = 56U;
@@ -411,14 +413,14 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_FOUR:
-        if (disp_menu_loop_count[MENU_FOUR]++ >= DISP_LOOP_M4)
+        if (disp_menu_loop_count[MENU_FOUR]++ >= disp_menu_get_refresh_limit(MENU_FOUR))
         {
             disp_menu_loop_count[MENU_FOUR] = 0;
             disp_peak_frequencies(data);
         }
         break;
     case MENU_FIVE:
-        if (disp_menu_loop_count[MENU_FIVE]++ >= DISP_LOOP_M5)
+        if (disp_menu_loop_count[MENU_FIVE]++ >= disp_menu_get_refresh_limit(MENU_FIVE))
         {
             disp_menu_loop_count[MENU_FIVE] = 0;
             disp_clear_data();
@@ -426,7 +428,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_SIX:
-        if (disp_menu_loop_count[MENU_SIX]++ >= DISP_LOOP_M6)
+        if (disp_menu_loop_count[MENU_SIX]++ >= disp_menu_get_refresh_limit(MENU_SIX))
         {
             char text[32];
 
@@ -464,7 +466,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_SEVEN:
-        if (disp_menu_loop_count[MENU_SEVEN]++ >= DISP_LOOP_M7)
+        if (disp_menu_loop_count[MENU_SEVEN]++ >= disp_menu_get_refresh_limit(MENU_SEVEN))
         {
             char text[32];
 
@@ -516,7 +518,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
     case MENU_EIGHT:
         break;
     case MENU_NINE:
-        if (disp_menu_loop_count[MENU_NINE]++ >= DISP_LOOP_M9)
+        if (disp_menu_loop_count[MENU_NINE]++ >= disp_menu_get_refresh_limit(MENU_NINE))
         {
             char text[32];
             uint32_t now = HAL_GetTick();
@@ -565,7 +567,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_TEN:
-        if (disp_menu_loop_count[MENU_TEN]++ >= DISP_LOOP_M10)
+        if (disp_menu_loop_count[MENU_TEN]++ >= disp_menu_get_refresh_limit(MENU_TEN))
         {
             disp_menu_loop_count[MENU_TEN] = 0;
             disp_clear_data();
@@ -579,33 +581,12 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
 
 static uint32_t disp_menu_get_refresh_limit(MENU_item_t menu_item)
 {
-    switch (menu_item)
+    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_TEN))
     {
-    case MENU_ZERO:
-        return DISP_LOOP_M0;
-    case MENU_ONE:
-        return DISP_LOOP_M1;
-    case MENU_TWO:
-        return DISP_LOOP_M2;
-    case MENU_THREE:
-        return DISP_LOOP_M3;
-    case MENU_FOUR:
-        return DISP_LOOP_M4;
-    case MENU_FIVE:
-        return DISP_LOOP_M5;
-    case MENU_SIX:
-        return DISP_LOOP_M6;
-    case MENU_SEVEN:
-        return DISP_LOOP_M7;
-    case MENU_EIGHT:
-        return DISP_LOOP_M8;
-    case MENU_NINE:
-        return DISP_LOOP_M9;
-    case MENU_TEN:
-        return DISP_LOOP_M10;
-    default:
-        return 0U;
+        return disp_menu_refresh_limit[menu_item];
     }
+
+    return 0U;
 }
 
 static void disp_peak_frequencies(const disp_menu_data_t *data)

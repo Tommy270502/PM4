@@ -40,13 +40,6 @@
 #include "openlog_uart.h"
 
 /******************************************************************************
- * Defines
- *****************************************************************************/
-#define SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
-#define SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
-
-
-/******************************************************************************
  * Variables
  *****************************************************************************/
 
@@ -229,8 +222,8 @@ int main(void) {
 				error_handling(ret_val);
 				radar_update_peak_readout(spectrum_shifted,
 						SPECTRUM_DISPLAY_HZ,
-						SPECTRUM_PEAK_VALID_THRESHOLD,
-						SPECTRUM_PEAK_DOMINANCE_RATIO,
+						RADAR_SPECTRUM_PEAK_VALID_THRESHOLD,
+						RADAR_SPECTRUM_PEAK_DOMINANCE_RATIO,
 						&spectrum_pos_peak_hz,
 						&spectrum_neg_peak_hz,
 						&spectrum_pos_peak_valid,
@@ -279,8 +272,8 @@ int main(void) {
 				error_handling(ret_val);
 				radar_update_peak_readout(spectrum_shifted,
 						SPECTRUM_DISPLAY_HZ,
-						SPECTRUM_PEAK_VALID_THRESHOLD,
-						SPECTRUM_PEAK_DOMINANCE_RATIO,
+						RADAR_SPECTRUM_PEAK_VALID_THRESHOLD,
+						RADAR_SPECTRUM_PEAK_DOMINANCE_RATIO,
 						&spectrum_pos_peak_hz,
 						&spectrum_neg_peak_hz,
 						&spectrum_pos_peak_valid,

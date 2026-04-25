@@ -47,6 +47,10 @@
  */
 #define RADAR_SAMPLE_RATE_HZ 100U
 
+/* Default spectrum peak readout tuning. */
+#define RADAR_SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
+#define RADAR_SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
+
 /******************************************************************************
  * Functions
  *****************************************************************************/

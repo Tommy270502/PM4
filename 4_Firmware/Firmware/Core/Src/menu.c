@@ -31,13 +31,11 @@
 #include "menu.h"
 
 /******************************************************************************
- * Defines
- *****************************************************************************/
-#define MENU_FONT				&Font12	///< Possible font sizes: 8 12 16 20 24
-
-/******************************************************************************
  * Variables
  *****************************************************************************/
+/** Menu font used for menu bar entries and arrows. */
+static sFONT * const menu_font = &Font12;        ///< Possible font sizes: 8, 12, 16, 20, 24 
+
 static MENU_item_t MENU_transition = MENU_NONE;	///< Transition to this menu
 static MENU_item_t MENU_active = MENU_NONE;		///< Currently active menu
 static uint32_t MENU_scroll_offset = 0;			///< Current scroll offset
@@ -101,7 +99,7 @@ LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED } };		///< All the menu entries
  *****************************************************************************/
 void MENU_draw(void)
 {
-    BSP_LCD_SetFont(MENU_FONT);
+    BSP_LCD_SetFont(menu_font);
     uint32_t x, y, m, w, h;
     uint32_t visible_slot;
     y = MENU_POSITION;
