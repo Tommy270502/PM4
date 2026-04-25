@@ -4,12 +4,9 @@
  */
 
 #include "filters.h"
+#include "math_constants.h"
 
 #include <math.h>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 static void normalize_and_store(biquad_df2t_t *q,
                                 float32_t b0, float32_t b1, float32_t b2,
@@ -59,7 +56,7 @@ void biquad_config(biquad_df2t_t *q, filter_type_t type, float32_t fs, float32_t
     if (Q < 0.1f)
         Q = 0.1f;
 
-    const float32_t w0 = 2.0f * (float32_t)M_PI * (f0 / fs);
+    const float32_t w0 = PM4_TWO_PI_F * (f0 / fs);
     const float32_t cw = cosf(w0);
     const float32_t sw = sinf(w0);
     const float32_t alpha = sw / (2.0f * Q);

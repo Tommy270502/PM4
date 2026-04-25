@@ -28,6 +28,7 @@
 #include "main.h"
 #include "pushbutton.h"
 #include "menu.h"
+#include "ui_layout.h"
 
 #include "dac_output.h"
 #include "fft.h"
@@ -43,9 +44,6 @@
  *****************************************************************************/
 #define SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
 #define SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
-
-/* DAC display parameters */
-#define DAC_TOUCH_STEP_VOLTAGE   0.1f
 
 
 /******************************************************************************

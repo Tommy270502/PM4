@@ -22,7 +22,6 @@
 #include "math.h"
 
 #include "display.h"
-#include "main.h"
 #include "radar.h"
 #include "dac_output.h"
 #include "ekg.h"

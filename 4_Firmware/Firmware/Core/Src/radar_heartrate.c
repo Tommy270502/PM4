@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "radar_heartrate.h"
+#include "math_constants.h"
 
 /******************************************************************************
  * Private helpers – forward declarations
@@ -364,7 +365,7 @@ static void extract_candidates(radar_hr_state_t *st)
             float32_t s_next = st->S[n0 + 1U];
             float32_t denom  = 2.0f * (s_prev - 2.0f * s_curr + s_next);
 
-            if (fabsf(denom) > 1e-12f) {
+            if (fabsf(denom) > PM4_NUMERIC_EPSILON_F) {
                 float32_t delta = (s_prev - s_next) / denom;
                 /* Clamp delta to +/-0.5 */
                 if (delta > 0.5f)  { delta =  0.5f; }
@@ -376,7 +377,7 @@ static void extract_candidates(radar_hr_state_t *st)
         radar_hr_candidate_t *cand = &st->candidates[st->num_candidates];
         cand->bin        = abs_bin;
         cand->f_interp_hz = f_interp;
-        cand->bpm_raw    = 60.0f * f_interp;
+        cand->bpm_raw    = PM4_BPM_PER_HZ * f_interp;
         cand->PNR_dB     = 0.0f;
         cand->prominence = 0.0f;
         cand->valid_conf = false;
@@ -421,7 +422,7 @@ static float32_t compute_noise_floor(const radar_hr_state_t *st)
     }
 
     if (buf_count == 0U) {
-        return 1e-12f;  /* Avoid division by zero. */
+        return PM4_NUMERIC_EPSILON_F;  /* Avoid division by zero. */
     }
 
     /* Simple partial sort to find median. */
@@ -435,7 +436,7 @@ static float32_t compute_noise_floor(const radar_hr_state_t *st)
         }
     }
     float32_t nf = buf[buf_count / 2U];
-    return (nf > 1e-12f) ? nf : 1e-12f;
+    return (nf > PM4_NUMERIC_EPSILON_F) ? nf : PM4_NUMERIC_EPSILON_F;
 }
 
 static void confidence_check(radar_hr_state_t *st, float32_t noise_floor)

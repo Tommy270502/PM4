@@ -18,13 +18,11 @@
 #define EKG_H_
 
 #include <stdint.h>
+#include "board_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define EKG_ADC_MAX_COUNT        (4095U)
-#define EKG_ADC_REF_VOLTAGE      (3.3f)
 
 #define EKG_DEFAULT_FS_HZ        (250U)
 #define EKG_DEFAULT_HP_HZ        (0.5f)

@@ -24,6 +24,7 @@
 
 #include "stm32f4xx.h"
 #include "arm_math.h"
+#include "board_config.h"
 #include "filters.h"
 
 /******************************************************************************
@@ -45,9 +46,6 @@
  * - FFT bin spacing is 100 / 512 = 0.1953125 Hz
  */
 #define RADAR_SAMPLE_RATE_HZ 100U
-
-#define RADAR_ADC_RES 12
-#define RADAR_ADC_REF_VOLTAGE 3.3f
 
 /******************************************************************************
  * Functions

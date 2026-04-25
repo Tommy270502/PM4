@@ -26,7 +26,7 @@
 #include "stm32f429i_discovery_lcd.h"
 #include "stm32f429i_discovery_ts.h"
 
-#include "main.h"
+#include "board_config.h"
 
 #include "menu.h"
 

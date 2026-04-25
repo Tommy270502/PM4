@@ -13,11 +13,8 @@
 
 #include "radar.h"
 #include "fft.h"
+#include "math_constants.h"
 #include "arm_const_structs.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 /******************************************************************************
  * Variables
@@ -57,7 +54,7 @@ HAL_StatusTypeDef fft_init(void)
 
     for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++)
     {
-        float32_t phase = (2.0f * (float32_t)M_PI * (float32_t)i)
+        float32_t phase = (PM4_TWO_PI_F * (float32_t)i)
                 / (float32_t)(RADAR_CHANNEL_SAMPLES - 1U);
         fft_window[i] = 0.5f - 0.5f * cosf(phase);
         window_sum += fft_window[i];

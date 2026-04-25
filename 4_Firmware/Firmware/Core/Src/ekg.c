@@ -6,15 +6,13 @@
  */
 
 #include "ekg.h"
+#include "math_constants.h"
 
 #include "stm32f4xx.h"
 
 #define EKG_ADC_TIMEOUT_LOOPS    (1000000U)
 #define EKG_WARMUP_SECONDS       (2U)
 #define EKG_MIN_THRESHOLD        (1.0e-8f)
-
-#define EKG_TIMER_PSC            (83U)        /* 84 MHz / (83 + 1) = 1 MHz */
-#define EKG_TIMER_TICK_HZ        (1000000UL)  /* timer tick frequency */
 
 const ekg_config_t EKG_CONFIG_DEFAULT = {
     .sample_rate_hz = EKG_DEFAULT_FS_HZ,
@@ -95,7 +93,7 @@ static void ekg_timer3_set_rate(uint32_t sample_rate_hz)
         sample_rate_hz = EKG_DEFAULT_FS_HZ;
     }
 
-    ticks_per_sample = (EKG_TIMER_TICK_HZ + (sample_rate_hz / 2U)) / sample_rate_hz;
+    ticks_per_sample = (BOARD_TIM_APB1_TICK_HZ + (sample_rate_hz / 2U)) / sample_rate_hz;
     if (ticks_per_sample == 0U)
     {
         ticks_per_sample = 1U;
@@ -105,7 +103,7 @@ static void ekg_timer3_set_rate(uint32_t sample_rate_hz)
         ticks_per_sample = 65536U;
     }
 
-    TIM3->PSC = EKG_TIMER_PSC;
+    TIM3->PSC = BOARD_TIM_APB1_PSC_1MHZ;
     TIM3->ARR = ticks_per_sample - 1U;
     TIM3->CNT = 0U;
     TIM3->EGR = TIM_EGR_UG;
@@ -210,15 +208,15 @@ static void ekg_update_coefficients(void)
     dt = 1.0f / fs;
 
     /* HP: y[n] = a * (y[n-1] + x[n] - x[n-1]) */
-    tau = 1.0f / (6.28318530718f * g_cfg.highpass_hz);
+    tau = 1.0f / (PM4_TWO_PI_F * g_cfg.highpass_hz);
     g_alpha_hp = tau / (tau + dt);
 
     /* LP: y[n] = y[n-1] + a * (x[n] - y[n-1]) */
-    tau = 1.0f / (6.28318530718f * g_cfg.lowpass_hz);
+    tau = 1.0f / (PM4_TWO_PI_F * g_cfg.lowpass_hz);
     g_alpha_lp = dt / (tau + dt);
 
     /* Envelope LP (smoothed squared derivative). */
-    tau = 1.0f / (6.28318530718f * g_cfg.envelope_hz);
+    tau = 1.0f / (PM4_TWO_PI_F * g_cfg.envelope_hz);
     g_alpha_env = dt / (tau + dt);
 
     g_refractory_samples = (uint32_t)(g_cfg.refractory_s * fs + 0.5f);
@@ -396,7 +394,7 @@ void ekg_process_raw(uint16_t raw, ekg_output_t *out)
 
                     if (g_last_accepted_peak != 0U)
                     {
-                        float inst_bpm = 60.0f * fs / (float)samples_since_peak;
+                        float inst_bpm = PM4_BPM_PER_HZ * fs / (float)samples_since_peak;
 
                         if (g_bpm_valid != 0U)
                         {

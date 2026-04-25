@@ -413,9 +413,10 @@ static void timer2_init_sample_rate(void)
 
     TIM2->CR1 = 0;
     TIM2->CR2 = 0;
-    TIM2->PSC = 83U;     /* 84 MHz / (83 + 1) = 1 MHz timer tick */
+    TIM2->PSC = BOARD_TIM_APB1_PSC_1MHZ;
 
-    ticks_per_sample = (1000000U + (RADAR_SAMPLE_RATE_HZ / 2U)) / RADAR_SAMPLE_RATE_HZ;
+    ticks_per_sample = ((uint32_t)BOARD_TIM_APB1_TICK_HZ + (RADAR_SAMPLE_RATE_HZ / 2U))
+            / RADAR_SAMPLE_RATE_HZ;
     if (ticks_per_sample == 0U)
     {
         ticks_per_sample = 1U;
