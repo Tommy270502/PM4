@@ -48,6 +48,9 @@ typedef struct {
 	float32_t radar_hr_bpm;
 	bool      radar_hr_valid;
 	radar_hr_sm_state_t radar_hr_state;
+	/* OpenLog logger status (MENU_SEVEN) */
+	bool      logging_enabled;
+	uint32_t  logging_drop_count;
 } disp_menu_data_t;
 
 /******************************************************************************

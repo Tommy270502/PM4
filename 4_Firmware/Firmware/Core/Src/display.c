@@ -42,15 +42,18 @@
 #define DISP_LOOP_M9 	4	// EKG BPM
 #define DISP_LOOP_M10 	4	// DAC output
 
+/* Time signal display parameters (MENU_ONE) */
 #define MAX_TIME_SIGNAL_POINTS 240
 #define TIME_SIGNAL_POINTS (RADAR_CHANNEL_SAMPLES > MAX_TIME_SIGNAL_POINTS ? MAX_TIME_SIGNAL_POINTS : RADAR_CHANNEL_SAMPLES)
-
 #define TIME_SIGNAL_MIN_SPAN     4.0f
 #define TIME_SIGNAL_HEADROOM     0.10f
+
+/* Spectrum analyzer display parameters (MENU_TWO) */
 #define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_MIN_DISPLAY_MAX 0.001f
 #define SPECTRUM_HEADROOM        1.15f
 
+/* DAC slider and button positions (MENU_TEN) */
 #define DAC_SLIDER_X             20U
 #define DAC_SLIDER_Y             120U
 #define DAC_SLIDER_WIDTH         200U
@@ -60,6 +63,12 @@
 #define DAC_BUTTON_HEIGHT        44U
 #define DAC_MINUS_X              20U
 #define DAC_PLUS_X               135U
+
+/* OpenLog logger toggle button (MENU_SEVEN) */
+#define LOG_TOGGLE_X             30U
+#define LOG_TOGGLE_Y             140U
+#define LOG_TOGGLE_WIDTH         180U
+#define LOG_TOGGLE_HEIGHT        50U
 
 /******************************************************************************
  * Variables
@@ -474,6 +483,55 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         }
         break;
     case MENU_SEVEN:
+        if (disp_menu_loop_count[MENU_SEVEN]++ >= DISP_LOOP_M7)
+        {
+            char text[32];
+
+            disp_menu_loop_count[MENU_SEVEN] = 0;
+            disp_clear_data();
+
+            /* Title */
+            BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+            BSP_LCD_SetFont(&Font20);
+            BSP_LCD_DisplayStringAt(0, 10, (uint8_t*) "Data Logger", CENTER_MODE);
+
+            /* Current state label */
+            BSP_LCD_SetFont(&Font24);
+            if (data->logging_enabled)
+            {
+                BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+                BSP_LCD_DisplayStringAt(0, 55, (uint8_t*) "Logging: ON", CENTER_MODE);
+            }
+            else
+            {
+                BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+                BSP_LCD_DisplayStringAt(0, 55, (uint8_t*) "Logging: OFF", CENTER_MODE);
+            }
+
+            /* Toggle button */
+            {
+                uint32_t btn_bg = data->logging_enabled ? LCD_COLOR_RED : LCD_COLOR_GREEN;
+                const char *btn_label = data->logging_enabled ? "STOP" : "START";
+
+                BSP_LCD_SetTextColor(btn_bg);
+                BSP_LCD_FillRect(LOG_TOGGLE_X, LOG_TOGGLE_Y, LOG_TOGGLE_WIDTH, LOG_TOGGLE_HEIGHT);
+                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                BSP_LCD_DrawRect(LOG_TOGGLE_X, LOG_TOGGLE_Y, LOG_TOGGLE_WIDTH, LOG_TOGGLE_HEIGHT);
+                BSP_LCD_SetBackColor(btn_bg);
+                BSP_LCD_SetFont(&Font24);
+                BSP_LCD_DisplayStringAt(0, LOG_TOGGLE_Y + 12U, (uint8_t*) btn_label, CENTER_MODE);
+            }
+
+            /* TX drop counter */
+            BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+            BSP_LCD_SetFont(&Font16);
+            snprintf(text, sizeof(text), "Drops: %lu",
+                    (unsigned long) data->logging_drop_count);
+            BSP_LCD_DisplayStringAt(0, 220, (uint8_t*) text, CENTER_MODE);
+        }
+        break;
     case MENU_EIGHT:
         break;
     case MENU_NINE:

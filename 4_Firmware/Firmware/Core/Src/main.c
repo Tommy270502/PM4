@@ -36,6 +36,7 @@
 #include "filters.h"
 #include "ekg.h"
 #include "radar_heartrate.h"
+#include "openlog_uart.h"
 
 /******************************************************************************
  * Defines
@@ -43,6 +44,8 @@
 #define SPECTRUM_DISPLAY_HZ      4.0f
 #define SPECTRUM_PEAK_VALID_THRESHOLD 0.01f
 #define SPECTRUM_PEAK_DOMINANCE_RATIO 3.0f
+
+/* DAC display parameters */
 #define DAC_TOUCH_STEP_VOLTAGE   0.1f
 #define DAC_SLIDER_X             20U
 #define DAC_SLIDER_Y             120U
@@ -53,6 +56,12 @@
 #define DAC_BUTTON_HEIGHT        44U
 #define DAC_MINUS_X              20U
 #define DAC_PLUS_X               135U
+
+/* OpenLog toggle button hit-area (must match display.c layout) */
+#define LOG_TOGGLE_X             30U
+#define LOG_TOGGLE_Y             140U
+#define LOG_TOGGLE_WIDTH         180U
+#define LOG_TOGGLE_HEIGHT        50U
 
 
 /******************************************************************************
@@ -93,6 +102,7 @@ static const char* filter_names[] = {
 static ekg_output_t ekg_latest = {0};
 static uint32_t ekg_last_peak_tick = 0;
 static bool dac_touch_was_detected = false;
+static bool log_touch_was_detected = false;
 
 static radar_hr_state_t  radar_hr_state;
 static radar_hr_output_t radar_hr_output = {0};
@@ -109,6 +119,7 @@ static bool touch_is_inside_rect(uint16_t x, uint16_t y, uint16_t rect_x,
 		uint16_t rect_y, uint16_t rect_width, uint16_t rect_height);
 static void dac_output_step(float delta_voltage);
 static bool dac_output_handle_touch(void);
+static bool openlog_handle_touch(void);
 
 /** ***************************************************************************
  * @brief  Main function
@@ -183,6 +194,8 @@ int main(void) {
 	ekg_init(NULL);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
 
 	radar_hr_init(&radar_hr_state, NULL);  // Radar HR estimator with defaults
+
+	openlog_init();  // TX-only OpenLog on USART6 / PG14 (default: OFF)
 
 	/* Infinite while loop */
 	while (1) {							// Infinitely loop in main function
@@ -259,6 +272,10 @@ int main(void) {
 			menu_request_refresh(MENU_TEN, true);
 		}
 
+		if ((active_menu == MENU_SEVEN) && openlog_handle_touch()) {
+			menu_request_refresh(MENU_SEVEN, true);
+		}
+
 		if (radar_frame_ready()) {
 			bool window_ready;
 			uint32_t primask = __get_PRIMASK();
@@ -289,6 +306,12 @@ int main(void) {
 
 				radar_hr_process_frame(&radar_hr_state, spectrum_shifted, &radar_hr_output);
 
+				/* Log one CSV row per processed radar frame (best-effort). */
+				openlog_write_row(HAL_GetTick(),
+						radar_hr_output.bpm,
+						radar_hr_output.valid,
+						radar_hr_output.state);
+
 				disp_refresh = true;      // Tell the display about the new data
 			}
 		}
@@ -311,6 +334,8 @@ int main(void) {
 			menu_data.radar_hr_bpm   = radar_hr_output.bpm;
 			menu_data.radar_hr_valid = radar_hr_output.valid;
 			menu_data.radar_hr_state = radar_hr_output.state;
+			menu_data.logging_enabled    = openlog_is_enabled();
+			menu_data.logging_drop_count = openlog_get_drop_count();
 
 			disp_menu_render(active_menu, &menu_data);
 		}
@@ -399,6 +424,40 @@ static bool dac_output_handle_touch(void)
 	}
 
 	return (old_code != dac_output_get_code());
+}
+
+/** ***************************************************************************
+ * @brief Handle touch events on the MENU_SEVEN logger toggle button.
+ *
+ * Uses edge detection (tap) consistent with the DAC touch pattern.
+ *
+ * @return true if logging state changed (display should refresh).
+ *****************************************************************************/
+static bool openlog_handle_touch(void)
+{
+	TS_StateTypeDef touch_state;
+	bool touch_just_pressed;
+
+	touch_get_adjusted_state(&touch_state);
+	touch_just_pressed = (!log_touch_was_detected && touch_state.TouchDetected);
+	log_touch_was_detected = touch_state.TouchDetected;
+
+	if (!touch_just_pressed) {
+		return false;
+	}
+
+	/* Ignore touches inside the menu bar. */
+	if (touch_state.Y >= DISP_HEIGHT) {
+		return false;
+	}
+
+	if (touch_is_inside_rect(touch_state.X, touch_state.Y,
+			LOG_TOGGLE_X, LOG_TOGGLE_Y, LOG_TOGGLE_WIDTH, LOG_TOGGLE_HEIGHT)) {
+		openlog_set_enabled(!openlog_is_enabled());
+		return true;
+	}
+
+	return false;
 }
 
 /** ***************************************************************************
