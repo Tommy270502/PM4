@@ -432,8 +432,7 @@ static bool openlog_handle_touch(void)
 	if (touch_is_inside_rect(touch_state.X, touch_state.Y,
 			LOG_START_X, LOG_START_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT)) {
 		if (!logging_enabled) {
-			openlog_set_enabled(true);
-			return true;
+			return openlog_start_session();
 		}
 		return false;
 	}
@@ -441,8 +440,7 @@ static bool openlog_handle_touch(void)
 	if (touch_is_inside_rect(touch_state.X, touch_state.Y,
 			LOG_STOP_X, LOG_STOP_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT)) {
 		if (logging_enabled) {
-			openlog_set_enabled(false);
-			return true;
+			return openlog_stop_session();
 		}
 		return false;
 	}

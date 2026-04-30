@@ -23,14 +23,26 @@
 /** Maximum formatted CSV row length including \r\n and NUL terminator. */
 enum { OPENLOG_LINE_BUF_SIZE = 80U };
 
-/** CSV header string written on every OFF->ON transition. */
+/** CSV header string written on every START transition. */
 static const char openlog_csv_header[] = "tick_ms,bpm,valid,state\r\n";
+
+/** OpenLog command mode control. */
+enum {
+    OPENLOG_ESCAPE_CHAR = 26U,
+    OPENLOG_ESCAPE_COUNT = 3U,
+    OPENLOG_ESCAPE_DELAY_MS = 20U,
+    OPENLOG_CMD_GUARD_MS = 50U,
+    OPENLOG_CMD_DELAY_MS = 50U,
+    OPENLOG_MAX_SESSIONS = 9999U
+};
 
 /******************************************************************************
  * Variables
  *****************************************************************************/
 static UART_HandleTypeDef openlog_huart;
-static bool     openlog_enabled    = false;
+static bool     openlog_enabled = false;
+static bool     openlog_in_command_mode = false;
+static uint16_t openlog_session_index = 0U;
 static uint32_t openlog_drop_count = 0U;
 
 /******************************************************************************
@@ -43,7 +55,7 @@ static uint32_t openlog_drop_count = 0U;
  * If the transmit fails for any reason (busy, error, timeout) the drop
  * counter is incremented and the function returns immediately.
  */
-static void openlog_tx(const uint8_t *buf, uint16_t len)
+static bool openlog_tx(const uint8_t *buf, uint16_t len)
 {
     HAL_StatusTypeDef status;
 
@@ -52,7 +64,38 @@ static void openlog_tx(const uint8_t *buf, uint16_t len)
     if (status != HAL_OK)
     {
         openlog_drop_count++;
+        return false;
     }
+
+    return true;
+}
+
+static bool openlog_send_escape_sequence(void)
+{
+    bool ok = true;
+    uint8_t esc = (uint8_t)OPENLOG_ESCAPE_CHAR;
+
+    for (uint32_t i = 0U; i < OPENLOG_ESCAPE_COUNT; i++)
+    {
+        if (!openlog_tx(&esc, 1U))
+        {
+            ok = false;
+        }
+        HAL_Delay(OPENLOG_ESCAPE_DELAY_MS);
+    }
+
+    return ok;
+}
+
+static bool openlog_send_command(const char *command)
+{
+    if (command == NULL)
+    {
+        openlog_drop_count++;
+        return false;
+    }
+
+    return openlog_tx((const uint8_t *)command, (uint16_t)strlen(command));
 }
 
 /**
@@ -62,6 +105,20 @@ static void openlog_write_header(void)
 {
     openlog_tx((const uint8_t *)openlog_csv_header,
                (uint16_t)(sizeof(openlog_csv_header) - 1U));
+}
+
+static void openlog_format_next_filename(char *buffer, size_t buffer_size)
+{
+    uint16_t next_index = (uint16_t)(openlog_session_index + 1U);
+
+    if (next_index > OPENLOG_MAX_SESSIONS)
+    {
+        next_index = 1U;
+    }
+
+    openlog_session_index = next_index;
+
+    snprintf(buffer, buffer_size, "LOG%04u.CSV", (unsigned int)openlog_session_index);
 }
 
 /******************************************************************************
@@ -97,19 +154,68 @@ void openlog_init(void)
     HAL_UART_Init(&openlog_huart);
 
     /* Logging starts OFF by default. */
-    openlog_enabled    = false;
+    openlog_enabled = false;
+    openlog_in_command_mode = false;
+    openlog_session_index = 0U;
     openlog_drop_count = 0U;
 }
 
-void openlog_set_enabled(bool enable)
+bool openlog_start_session(void)
 {
-    /* Emit CSV header on every OFF -> ON transition. */
-    if (enable && !openlog_enabled)
+    char filename[13];
+    char command[24];
+    bool ok = true;
+
+    if (openlog_enabled)
     {
-        openlog_write_header();
+        return false;
     }
 
-    openlog_enabled = enable;
+    if (!openlog_in_command_mode)
+    {
+        ok = openlog_send_escape_sequence();
+        HAL_Delay(OPENLOG_CMD_GUARD_MS);
+        if (!ok)
+        {
+            return false;
+        }
+        openlog_in_command_mode = true;
+    }
+
+    openlog_format_next_filename(filename, sizeof(filename));
+    snprintf(command, sizeof(command), "append %s\r", filename);
+
+    if (!openlog_send_command(command))
+    {
+        return false;
+    }
+
+    HAL_Delay(OPENLOG_CMD_DELAY_MS);
+    openlog_write_header();
+
+    openlog_enabled = true;
+    openlog_in_command_mode = false;
+
+    return true;
+}
+
+bool openlog_stop_session(void)
+{
+    bool was_enabled = openlog_enabled;
+
+    if (!openlog_in_command_mode)
+    {
+        openlog_send_escape_sequence();
+        HAL_Delay(OPENLOG_CMD_GUARD_MS);
+        openlog_in_command_mode = true;
+    }
+
+    openlog_send_command("sync\r");
+    HAL_Delay(OPENLOG_CMD_DELAY_MS);
+
+    openlog_enabled = false;
+
+    return was_enabled;
 }
 
 bool openlog_is_enabled(void)

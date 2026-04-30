@@ -3,7 +3,8 @@
  * @brief TX-only OpenLog logger over USART6 on PG14.
  *
  * Provides best-effort CSV logging of radar HR summary data to an OpenLog
- * module connected to PG14 (USART6 TX, AF8) at 9600 baud.
+ * module connected to PG14 (USART6 TX, AF8) at 9600 baud. Each START session
+ * creates a new log file using OpenLog command mode.
  *
  * Prefix OPENLOG
  *
@@ -41,14 +42,23 @@
 void openlog_init(void);
 
 /**
- * @brief  Enable or disable CSV logging.
+ * @brief  Start a new logging session.
  *
- * When transitioning from OFF -> ON the CSV header row is emitted
- * automatically so each logging session begins with column names.
+ * Enters command mode, appends to a new per-session file (e.g. LOG0001.CSV),
+ * and emits the CSV header row before enabling logging.
  *
- * @param[in] enable  true = start logging, false = stop.
+ * @return true if logging transitioned to ON.
  */
-void openlog_set_enabled(bool enable);
+bool openlog_start_session(void);
+
+/**
+ * @brief  Stop the current logging session.
+ *
+ * Enters command mode and issues a sync command, then disables logging.
+ *
+ * @return true if logging transitioned to OFF.
+ */
+bool openlog_stop_session(void);
 
 /**
  * @brief  Query whether logging is currently enabled.
