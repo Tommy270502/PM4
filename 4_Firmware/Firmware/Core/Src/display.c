@@ -492,18 +492,32 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
                 BSP_LCD_DisplayStringAt(0, 55, (uint8_t*) "Logging: OFF", CENTER_MODE);
             }
 
-            /* Toggle button */
+            /* Start/Stop buttons */
             {
-                uint32_t btn_bg = data->logging_enabled ? LCD_COLOR_RED : LCD_COLOR_GREEN;
-                const char *btn_label = data->logging_enabled ? "STOP" : "START";
+                const bool start_enabled = !data->logging_enabled;
+                const bool stop_enabled = data->logging_enabled;
+                const uint32_t start_bg = start_enabled ? LCD_COLOR_GREEN : LCD_COLOR_LIGHTGRAY;
+                const uint32_t stop_bg = stop_enabled ? LCD_COLOR_RED : LCD_COLOR_LIGHTGRAY;
+                const uint32_t start_text = start_enabled ? LCD_COLOR_BLACK : LCD_COLOR_DARKGRAY;
+                const uint32_t stop_text = stop_enabled ? LCD_COLOR_BLACK : LCD_COLOR_DARKGRAY;
 
-                BSP_LCD_SetTextColor(btn_bg);
-                BSP_LCD_FillRect(LOG_TOGGLE_X, LOG_TOGGLE_Y, LOG_TOGGLE_WIDTH, LOG_TOGGLE_HEIGHT);
-                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                BSP_LCD_DrawRect(LOG_TOGGLE_X, LOG_TOGGLE_Y, LOG_TOGGLE_WIDTH, LOG_TOGGLE_HEIGHT);
-                BSP_LCD_SetBackColor(btn_bg);
                 BSP_LCD_SetFont(&Font24);
-                BSP_LCD_DisplayStringAt(0, LOG_TOGGLE_Y + 12U, (uint8_t*) btn_label, CENTER_MODE);
+
+                BSP_LCD_SetTextColor(start_bg);
+                BSP_LCD_FillRect(LOG_START_X, LOG_START_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT);
+                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                BSP_LCD_DrawRect(LOG_START_X, LOG_START_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT);
+                BSP_LCD_SetBackColor(start_bg);
+                BSP_LCD_SetTextColor(start_text);
+                BSP_LCD_DisplayStringAt(0, LOG_START_Y + 8U, (uint8_t*) "START", CENTER_MODE);
+
+                BSP_LCD_SetTextColor(stop_bg);
+                BSP_LCD_FillRect(LOG_STOP_X, LOG_STOP_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT);
+                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                BSP_LCD_DrawRect(LOG_STOP_X, LOG_STOP_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT);
+                BSP_LCD_SetBackColor(stop_bg);
+                BSP_LCD_SetTextColor(stop_text);
+                BSP_LCD_DisplayStringAt(0, LOG_STOP_Y + 8U, (uint8_t*) "STOP", CENTER_MODE);
             }
 
             /* TX drop counter */

@@ -402,7 +402,7 @@ static bool dac_output_handle_touch(void)
 }
 
 /** ***************************************************************************
- * @brief Handle touch events on the MENU_SEVEN logger toggle button.
+ * @brief Handle touch events on the MENU_SEVEN logger start/stop buttons.
  *
  * Uses edge detection (tap) consistent with the DAC touch pattern.
  *
@@ -412,6 +412,7 @@ static bool openlog_handle_touch(void)
 {
 	TS_StateTypeDef touch_state;
 	bool touch_just_pressed;
+	bool logging_enabled;
 
 	touch_get_adjusted_state(&touch_state);
 	touch_just_pressed = (!log_touch_was_detected && touch_state.TouchDetected);
@@ -426,10 +427,24 @@ static bool openlog_handle_touch(void)
 		return false;
 	}
 
+	logging_enabled = openlog_is_enabled();
+
 	if (touch_is_inside_rect(touch_state.X, touch_state.Y,
-			LOG_TOGGLE_X, LOG_TOGGLE_Y, LOG_TOGGLE_WIDTH, LOG_TOGGLE_HEIGHT)) {
-		openlog_set_enabled(!openlog_is_enabled());
-		return true;
+			LOG_START_X, LOG_START_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT)) {
+		if (!logging_enabled) {
+			openlog_set_enabled(true);
+			return true;
+		}
+		return false;
+	}
+
+	if (touch_is_inside_rect(touch_state.X, touch_state.Y,
+			LOG_STOP_X, LOG_STOP_Y, LOG_BUTTON_WIDTH, LOG_BUTTON_HEIGHT)) {
+		if (logging_enabled) {
+			openlog_set_enabled(false);
+			return true;
+		}
+		return false;
 	}
 
 	return false;

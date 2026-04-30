@@ -23,11 +23,13 @@
 #define DAC_TOUCH_STEP_VOLTAGE   0.1f
 
 /******************************************************************************
- * OpenLog logger toggle layout (MENU_SEVEN)
+ * OpenLog logger button layout (MENU_SEVEN)
  *****************************************************************************/
-#define LOG_TOGGLE_X             30U
-#define LOG_TOGGLE_Y             140U
-#define LOG_TOGGLE_WIDTH         180U
-#define LOG_TOGGLE_HEIGHT        50U
+#define LOG_START_X              30U
+#define LOG_START_Y              120U
+#define LOG_STOP_X               30U
+#define LOG_STOP_Y               170U
+#define LOG_BUTTON_WIDTH         180U
+#define LOG_BUTTON_HEIGHT        40U
 
 #endif
