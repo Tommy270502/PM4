@@ -72,16 +72,12 @@ LCD_COLOR_BLACK, LCD_COLOR_LIGHTCYAN },
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTMAGENTA },
 { "Peak", "Detect",
 LCD_COLOR_BLACK, LCD_COLOR_ORANGE },
-{ "Level", "Meter",
-LCD_COLOR_BLACK, LCD_COLOR_LIGHTBLUE },
 { "Radar", "BPM",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTCYAN },
 { "Log", "Data",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTGREEN },
-{ "RMS", "Level",
-LCD_COLOR_BLACK, LCD_COLOR_LIGHTBLUE },
 { "EKG", "BPM",
-LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED },
+LCD_COLOR_BLACK, LCD_COLOR_LIGHTBLUE },
 { "DAC", "PA5",
 LCD_COLOR_BLACK, LCD_COLOR_LIGHTRED } };		///< All the menu entries
 
@@ -370,7 +366,7 @@ void MENU_check_transition(void)
  * MENU_transition is used as a flag.
  * When the value is read by calling MENU_get_transition()
  * this flag is cleared, respectively set to MENU_NONE.
- * MENU_active is updated only for content menu selections (MENU_ZERO..MENU_TEN).
+ * MENU_active is updated only for content menu selections (MENU_ZERO..MENU_EIGHT).
  * Scroll transitions keep the currently active content menu unchanged.
  *****************************************************************************/
 MENU_item_t MENU_get_transition(void)
@@ -379,7 +375,7 @@ MENU_item_t MENU_get_transition(void)
     if (temp != MENU_NONE)
     {
         MENU_transition = MENU_NONE;
-        if ((temp >= MENU_ZERO) && (temp <= MENU_TEN))
+        if ((temp >= MENU_ZERO) && (temp <= MENU_EIGHT))
         {
             MENU_active = temp;
         }

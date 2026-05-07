@@ -52,7 +52,7 @@ typedef struct {
 	float32_t radar_hr_bpm;
 	bool      radar_hr_valid;
 	radar_hr_sm_state_t radar_hr_state;
-	/* OpenLog logger status (MENU_SEVEN) */
+	/* OpenLog logger status (MENU_SIX) */
 	bool      logging_enabled;
 	uint32_t  logging_drop_count;
 } disp_menu_data_t;
@@ -64,7 +64,6 @@ void disp_clear_data(void);
 void disp_name_value(char name[], float32_t value, uint32_t color, uint32_t position);
 void disp_curves(float32_t data[], uint32_t count, float32_t min, float32_t max, uint32_t color);
 void disp_bars(float32_t data[], uint32_t count, float32_t min, float32_t max, uint32_t color);
-void disp_level(float32_t avg_l, float32_t peak_l, float32_t avg_r, float32_t peak_r);
 void disp_info(void);
 /**
  * @brief Force one menu page to redraw on next disp_menu_render call.

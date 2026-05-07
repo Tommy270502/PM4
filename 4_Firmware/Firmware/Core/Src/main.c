@@ -197,8 +197,6 @@ int main(void) {
 		case MENU_SIX:
 		case MENU_SEVEN:
 		case MENU_EIGHT:
-		case MENU_NINE:
-		case MENU_TEN:
 			menu_request_refresh(menu_transition, true);
 			break;
 		default:	// Should never occur
@@ -238,17 +236,17 @@ int main(void) {
 			if (ekg_latest.r_peak) {
 				ekg_last_peak_tick = HAL_GetTick();
 			}
-			if (active_menu == MENU_NINE) {
-				menu_request_refresh(MENU_NINE, false);
+			if (active_menu == MENU_SEVEN) {
+				menu_request_refresh(MENU_SEVEN, false);
 			}
 		}
 
-		if ((active_menu == MENU_TEN) && dac_output_handle_touch()) {
-			menu_request_refresh(MENU_TEN, true);
+		if ((active_menu == MENU_EIGHT) && dac_output_handle_touch()) {
+			menu_request_refresh(MENU_EIGHT, true);
 		}
 
-		if ((active_menu == MENU_SEVEN) && openlog_handle_touch()) {
-			menu_request_refresh(MENU_SEVEN, true);
+		if ((active_menu == MENU_SIX) && openlog_handle_touch()) {
+			menu_request_refresh(MENU_SIX, true);
 		}
 
 		if (radar_frame_ready()) {
@@ -402,7 +400,7 @@ static bool dac_output_handle_touch(void)
 }
 
 /** ***************************************************************************
- * @brief Handle touch events on the MENU_SEVEN logger start/stop buttons.
+ * @brief Handle touch events on the MENU_SIX logger start/stop buttons.
  *
  * Uses edge detection (tap) consistent with the DAC touch pattern.
  *

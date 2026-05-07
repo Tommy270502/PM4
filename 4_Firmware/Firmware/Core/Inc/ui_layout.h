@@ -7,7 +7,7 @@
 #define UI_LAYOUT_H_
 
 /******************************************************************************
- * DAC slider and button layout (MENU_TEN)
+ * DAC slider and button layout (MENU_EIGHT)
  *****************************************************************************/
 #define DAC_SLIDER_X             20U
 #define DAC_SLIDER_Y             120U
@@ -23,7 +23,7 @@
 #define DAC_TOUCH_STEP_VOLTAGE   0.1f
 
 /******************************************************************************
- * OpenLog logger button layout (MENU_SEVEN)
+ * OpenLog logger button layout (MENU_SIX)
  *****************************************************************************/
 #define LOG_START_X              30U
 #define LOG_START_Y              120U

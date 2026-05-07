@@ -73,7 +73,7 @@ flowchart TD
         m1 -.->|page change| m15
         m2 -- yes --> m3 --> m4 --> m15
         m5 -- yes --> m6
-        m6 -.->|if MENU_NINE active| m15
+        m6 -.->|if MENU_SEVEN active| m15
         m7 -- yes --> m8 --> m9
         m9 -- yes --> m10 --> m11 --> m12 --> m15
         m13 -- yes --> m14 --> m15
@@ -87,9 +87,10 @@ flowchart TD
         d4["Menu 2<br/>centered FFT spectrum around 0 Hz"]
         d5["Menu 3<br/>active filter list"]
         d6["Menu 4<br/>positive and negative peak readout"]
-        d7["Menu 9<br/>ECG BPM, raw ADC, R-peak, overrun"]
-        d8["Menu 10<br/>DAC slider and plus/minus controls"]
-        d9["Menu 5 static demo level meter<br/>Menus 6 to 8 currently blank"]
+        d7["Menu 5<br/>Radar BPM"]
+        d8["Menu 6<br/>Data logger start/stop + drop count"]
+        d9["Menu 7<br/>ECG BPM, raw ADC, R-peak, overrun"]
+        d10["Menu 8<br/>DAC slider and plus/minus controls"]
 
         m15 --> d1 --> d2
         d2 --> d0
@@ -99,7 +100,8 @@ flowchart TD
         d2 --> d6
         d2 --> d7
         d2 --> d8
-        d2 -.-> d9
+        d2 --> d9
+        d2 --> d10
     end
 
     b6 --> m0
@@ -110,7 +112,6 @@ flowchart TD
 
     class b0,b1,b2,b3,b4,b5,b6 bootCls
     class r1,r2,r3,r4,r5,r6,e1,e2,e3,e4,u3,u4 isrCls
-    class u1,u2,d0,d1,d2,d3,d4,d5,d6,d7,d8 uiCls
+    class u1,u2,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10 uiCls
     class m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15 mainCls
-    class d9 noteCls
 ```

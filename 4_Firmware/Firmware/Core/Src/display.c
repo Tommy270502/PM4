@@ -39,8 +39,6 @@ static const uint32_t disp_menu_refresh_limit[MENU_TOTAL_ENTRIES] = {
     [MENU_SIX] = 4U,
     [MENU_SEVEN] = 4U,
     [MENU_EIGHT] = 4U,
-    [MENU_NINE] = 4U,
-    [MENU_TEN] = 4U,
 };
 
 /* Time signal display parameters (MENU_ONE). */
@@ -183,94 +181,6 @@ void disp_bars(float32_t data[], uint32_t count, float32_t min, float32_t max,
 }
 
 /** ***************************************************************************
- * @brief Display channel level meter
- *
- * @param[in] avg_l  average I channel
- * @param[in] peak_l peak I channel
- * @param[in] avg_r  average Q channel
- * @param[in] peak_r peak Q channel
- *****************************************************************************/
-void disp_level(float32_t avg_l, float32_t peak_l, float32_t avg_r,
-             float32_t peak_r)
-{
-    uint32_t d_width = DISP_WIDTH;
-    uint32_t d_height = DISP_HEIGHT;
-    int32_t posx, posy;
-    int32_t posxdelta = (d_width - 1) / 5;
-    int32_t peaky = 10;
-    int32_t min = -40;
-    int32_t max = 0;
-    float avg, peak;
-    for (uint32_t i = 0; i < 2; i++)
-    {
-        posx = posxdelta * (2 * i + 1);
-        // Draw the averages
-        switch (i)
-        {
-            case 0:
-                avg = avg_l;
-                peak = peak_l;
-                break;
-            case 1:
-                avg = avg_r;
-                peak = peak_r;
-                break;
-        }
-        if (avg > -3)
-        {
-            BSP_LCD_SetTextColor(LCD_COLOR_LIGHTRED);
-        } else if (avg > -9)
-        {
-            BSP_LCD_SetTextColor(LCD_COLOR_LIGHTYELLOW);
-        } else
-        {
-            BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGREEN);
-        }
-        if (avg < min)
-        {
-            avg = min;
-        }
-        posy = (int32_t) ((avg - min) / (max - min) * (d_height - 1));
-        if (posy < 0)
-        {
-            posy = 0;
-        }
-        if (posy > (d_height - 1))
-        {
-            posy = (d_height - 1);
-        }
-        BSP_LCD_FillRect(posx, d_height - posy, (posxdelta - 1), posy);
-
-        // Draw the peaks
-        if (peak > -3)
-        {
-            BSP_LCD_SetTextColor(LCD_COLOR_RED);
-        } else if (peak > -9)
-        {
-            BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-        } else
-        {
-            BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-        }
-        if (peak < min)
-        {
-            peak = min;
-        }
-        posy = (int32_t) ((peak - min) / (max - min) * (d_height - 1));
-        if (posy > (d_height))
-        {
-            posy = (d_height);
-        }
-        if (posy < peaky)
-        {
-            posy = peaky;
-        }
-        BSP_LCD_FillRect(posx, d_height - posy, (posxdelta - 1), peaky);
-
-    }
-}
-
-/** ***************************************************************************
  * @brief Display info screen
  *
  *****************************************************************************/
@@ -299,7 +209,7 @@ void disp_info(void)
  *****************************************************************************/
 void disp_menu_force_refresh(MENU_item_t menu_item)
 {
-    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_TEN))
+    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_EIGHT))
     {
         disp_menu_loop_count[menu_item] = disp_menu_get_refresh_limit(menu_item);
     }
@@ -422,17 +332,9 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
     case MENU_FIVE:
         if (disp_menu_loop_count[MENU_FIVE]++ >= disp_menu_get_refresh_limit(MENU_FIVE))
         {
-            disp_menu_loop_count[MENU_FIVE] = 0;
-            disp_clear_data();
-            disp_level(-10, -5, -12, -6);
-        }
-        break;
-    case MENU_SIX:
-        if (disp_menu_loop_count[MENU_SIX]++ >= disp_menu_get_refresh_limit(MENU_SIX))
-        {
             char text[32];
 
-            disp_menu_loop_count[MENU_SIX] = 0;
+            disp_menu_loop_count[MENU_FIVE] = 0;
             disp_clear_data();
 
             BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
@@ -465,12 +367,12 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
             }
         }
         break;
-    case MENU_SEVEN:
-        if (disp_menu_loop_count[MENU_SEVEN]++ >= disp_menu_get_refresh_limit(MENU_SEVEN))
+    case MENU_SIX:
+        if (disp_menu_loop_count[MENU_SIX]++ >= disp_menu_get_refresh_limit(MENU_SIX))
         {
             char text[32];
 
-            disp_menu_loop_count[MENU_SEVEN] = 0;
+            disp_menu_loop_count[MENU_SIX] = 0;
             disp_clear_data();
 
             /* Title */
@@ -529,15 +431,13 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
             BSP_LCD_DisplayStringAt(0, 220, (uint8_t*) text, CENTER_MODE);
         }
         break;
-    case MENU_EIGHT:
-        break;
-    case MENU_NINE:
-        if (disp_menu_loop_count[MENU_NINE]++ >= disp_menu_get_refresh_limit(MENU_NINE))
+    case MENU_SEVEN:
+        if (disp_menu_loop_count[MENU_SEVEN]++ >= disp_menu_get_refresh_limit(MENU_SEVEN))
         {
             char text[32];
             uint32_t now = HAL_GetTick();
 
-            disp_menu_loop_count[MENU_NINE] = 0;
+            disp_menu_loop_count[MENU_SEVEN] = 0;
             disp_clear_data();
 
             BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
@@ -580,10 +480,10 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
             BSP_LCD_DisplayStringAt(0, 210, (uint8_t*) text, CENTER_MODE);
         }
         break;
-    case MENU_TEN:
-        if (disp_menu_loop_count[MENU_TEN]++ >= disp_menu_get_refresh_limit(MENU_TEN))
+    case MENU_EIGHT:
+        if (disp_menu_loop_count[MENU_EIGHT]++ >= disp_menu_get_refresh_limit(MENU_EIGHT))
         {
-            disp_menu_loop_count[MENU_TEN] = 0;
+            disp_menu_loop_count[MENU_EIGHT] = 0;
             disp_clear_data();
             disp_dac_output();
         }
@@ -595,7 +495,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
 
 static uint32_t disp_menu_get_refresh_limit(MENU_item_t menu_item)
 {
-    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_TEN))
+    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_EIGHT))
     {
         return disp_menu_refresh_limit[menu_item];
     }
