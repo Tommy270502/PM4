@@ -10,6 +10,12 @@
  * 3) ADC ISR stores newest raw sample and raises a sample-ready flag
  * 4) Main loop calls ekg_process_if_ready() to run signal processing
  *
+ * The AD8232 cardiac-monitor analog network is the ECG waveform-shaping
+ * filter: nominal 0.5 Hz high-pass and 40 Hz low-pass. The default digital
+ * path therefore preserves the ADC waveform and only derives an envelope for
+ * R-peak/BPM estimation. Optional digital cleanup filters can be enabled by
+ * setting highpass_hz and/or lowpass_hz to nonzero values.
+ *
  * This module helps with real-time ECG feature extraction, but it is not a
  * certified medical device implementation.
  */
@@ -25,16 +31,18 @@ extern "C" {
 #endif
 
 #define EKG_DEFAULT_FS_HZ        (250U)
-#define EKG_DEFAULT_HP_HZ        (0.5f)
-#define EKG_DEFAULT_LP_HZ        (40.0f)
+#define EKG_AD8232_AFE_HP_HZ     (0.5f)
+#define EKG_AD8232_AFE_LP_HZ     (40.0f)
+#define EKG_DEFAULT_HP_HZ        (0.0f)
+#define EKG_DEFAULT_LP_HZ        (0.0f)
 #define EKG_DEFAULT_ENV_HZ       (8.0f)
 
 typedef struct
 {
     uint32_t sample_rate_hz;
-    float highpass_hz;
-    float lowpass_hz;
-    float envelope_hz;
+    float highpass_hz;     /**< Optional digital high-pass cleanup; 0 disables it. */
+    float lowpass_hz;      /**< Optional digital low-pass cleanup; 0 disables it. */
+    float envelope_hz;     /**< R-peak detector envelope smoothing cutoff. */
     float refractory_s;
     float min_rr_s;
     float max_rr_s;
@@ -43,10 +51,10 @@ typedef struct
 typedef struct
 {
     uint16_t raw;
-    float voltage;
-    float bandpassed;
-    float envelope;
-    float threshold;
+    float voltage;         /**< Raw ADC voltage from AD8232 OUT. */
+    float bandpassed;      /**< AC-centered ECG waveform after optional digital cleanup. */
+    float envelope;        /**< Squared-derivative detector envelope. */
+    float threshold;       /**< Adaptive detector threshold. */
     uint8_t r_peak;
     float bpm;
     uint8_t bpm_valid;

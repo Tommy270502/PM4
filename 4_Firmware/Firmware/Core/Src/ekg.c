@@ -10,9 +10,18 @@
 
 #include "stm32f4xx.h"
 
+#if !defined(STM32F429xx)
+#error "ekg.c is written for STM32F429xx: AD8232 OUT must be wired to PF6 / ADC3_IN4."
+#endif
+
 #define EKG_ADC_TIMEOUT_LOOPS    (1000000U)
 #define EKG_WARMUP_SECONDS       (2U)
 #define EKG_MIN_THRESHOLD        (1.0e-8f)
+#define EKG_ADC_CHANNEL          (4U)
+#define EKG_ADC_GPIO_PIN         (6U)
+#define EKG_ADC_SAMPLE_TIME_BITS (5UL)   /* 84 ADC cycles on STM32F4. */
+#define EKG_ADC_STABILIZE_LOOPS  (1000U)
+#define EKG_ADC_MID_VOLTAGE      (0.5f * EKG_ADC_REF_VOLTAGE)
 
 const ekg_config_t EKG_CONFIG_DEFAULT = {
     .sample_rate_hz = EKG_DEFAULT_FS_HZ,
@@ -42,10 +51,12 @@ static volatile uint16_t g_irq_latest_raw = 0U;
 static volatile uint8_t g_irq_sample_ready = 0U;
 static volatile uint32_t g_irq_overrun_count = 0U;
 
-/* Filter coefficients (first-order HP + LP + envelope LP). */
+/* Optional first-order cleanup coefficients plus detector envelope LP. */
 static float g_alpha_hp = 0.0f;
 static float g_alpha_lp = 0.0f;
 static float g_alpha_env = 0.0f;
+static uint8_t g_hp_enabled = 0U;
+static uint8_t g_lp_enabled = 0U;
 
 /* Filter state. */
 static float g_prev_x = 0.0f;
@@ -82,6 +93,17 @@ static float clampf(float value, float lo, float hi)
         return hi;
     }
     return value;
+}
+
+static void ekg_adc_wait_stable(void)
+{
+    volatile uint32_t wait = EKG_ADC_STABILIZE_LOOPS;
+
+    while (wait > 0U)
+    {
+        __NOP();
+        wait--;
+    }
 }
 
 static void ekg_timer3_set_rate(uint32_t sample_rate_hz)
@@ -129,15 +151,18 @@ static void ekg_adc3_pf6_init(void)
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOFEN;
     (void)RCC->AHB1ENR;
 
-    /* PF6 -> analog mode, no pull-up/down. */
-    GPIOF->MODER &= ~(3UL << GPIO_MODER_MODER6_Pos);
-    GPIOF->MODER |= (3UL << GPIO_MODER_MODER6_Pos);
-    GPIOF->PUPDR &= ~(3UL << GPIO_PUPDR_PUPD6_Pos);
-    GPIOF->OTYPER &= ~GPIO_OTYPER_OT6;
-    GPIOF->OSPEEDR &= ~(3UL << GPIO_OSPEEDR_OSPEED6_Pos);
+    /* STM32F429ZI: PF6 is the analog input for ADC3 regular channel 4. */
+    GPIOF->MODER &= ~(3UL << (EKG_ADC_GPIO_PIN * 2U));
+    GPIOF->MODER |= (3UL << (EKG_ADC_GPIO_PIN * 2U));
+    GPIOF->PUPDR &= ~(3UL << (EKG_ADC_GPIO_PIN * 2U));
+    GPIOF->AFR[0] &= ~(0xFUL << (EKG_ADC_GPIO_PIN * 4U));
+    GPIOF->OTYPER &= ~(1UL << EKG_ADC_GPIO_PIN);
+    GPIOF->OSPEEDR &= ~(3UL << (EKG_ADC_GPIO_PIN * 2U));
 
     RCC->APB2ENR |= RCC_APB2ENR_ADC3EN;
     (void)RCC->APB2ENR;
+
+    ADC3->CR2 &= ~ADC_CR2_ADON;
 
     /* ADC common prescaler PCLK2/8 for robust ADC clock margin. */
     ADC->CCR &= ~ADC_CCR_ADCPRE_Msk;
@@ -149,17 +174,18 @@ static void ekg_adc3_pf6_init(void)
 
     /* Channel 4 sample time = 84 cycles. */
     ADC3->SMPR2 &= ~ADC_SMPR2_SMP4_Msk;
-    ADC3->SMPR2 |= (5UL << ADC_SMPR2_SMP4_Pos);
+    ADC3->SMPR2 |= (EKG_ADC_SAMPLE_TIME_BITS << ADC_SMPR2_SMP4_Pos);
 
     /* Regular sequence length 1, first conversion = CH4 (PF6). */
     ADC3->SQR1 = 0U;
     ADC3->SQR2 = 0U;
-    ADC3->SQR3 = 4U;
+    ADC3->SQR3 = EKG_ADC_CHANNEL;
 
     ADC3->SR = 0U;
 
     /* Enable ADC3. */
     ADC3->CR2 |= ADC_CR2_ADON;
+    ekg_adc_wait_stable();
 }
 
 static void ekg_irq_init(void)
@@ -185,11 +211,30 @@ static void ekg_update_coefficients(void)
         fs = (float)g_cfg.sample_rate_hz;
     }
 
-    g_cfg.highpass_hz = clampf(g_cfg.highpass_hz, 0.05f, 5.0f);
-    g_cfg.lowpass_hz = clampf(g_cfg.lowpass_hz, 5.0f, 100.0f);
+    if (g_cfg.highpass_hz < 0.0f)
+    {
+        g_cfg.highpass_hz = 0.0f;
+    }
+    if (g_cfg.lowpass_hz < 0.0f)
+    {
+        g_cfg.lowpass_hz = 0.0f;
+    }
+
+    g_hp_enabled = (g_cfg.highpass_hz > 0.0f) ? 1U : 0U;
+    g_lp_enabled = (g_cfg.lowpass_hz > 0.0f) ? 1U : 0U;
+
+    if (g_hp_enabled != 0U)
+    {
+        g_cfg.highpass_hz = clampf(g_cfg.highpass_hz, 0.05f, 5.0f);
+    }
+    if (g_lp_enabled != 0U)
+    {
+        g_cfg.lowpass_hz = clampf(g_cfg.lowpass_hz, 5.0f, 100.0f);
+    }
     g_cfg.envelope_hz = clampf(g_cfg.envelope_hz, 1.0f, 30.0f);
 
-    if (g_cfg.lowpass_hz <= g_cfg.highpass_hz)
+    if ((g_hp_enabled != 0U) && (g_lp_enabled != 0U) &&
+        (g_cfg.lowpass_hz <= g_cfg.highpass_hz))
     {
         g_cfg.lowpass_hz = g_cfg.highpass_hz + 2.0f;
     }
@@ -207,13 +252,27 @@ static void ekg_update_coefficients(void)
 
     dt = 1.0f / fs;
 
-    /* HP: y[n] = a * (y[n-1] + x[n] - x[n-1]) */
-    tau = 1.0f / (PM4_TWO_PI_F * g_cfg.highpass_hz);
-    g_alpha_hp = tau / (tau + dt);
+    if (g_hp_enabled != 0U)
+    {
+        /* HP: y[n] = a * (y[n-1] + x[n] - x[n-1]) */
+        tau = 1.0f / (PM4_TWO_PI_F * g_cfg.highpass_hz);
+        g_alpha_hp = tau / (tau + dt);
+    }
+    else
+    {
+        g_alpha_hp = 0.0f;
+    }
 
-    /* LP: y[n] = y[n-1] + a * (x[n] - y[n-1]) */
-    tau = 1.0f / (PM4_TWO_PI_F * g_cfg.lowpass_hz);
-    g_alpha_lp = dt / (tau + dt);
+    if (g_lp_enabled != 0U)
+    {
+        /* LP: y[n] = y[n-1] + a * (x[n] - y[n-1]) */
+        tau = 1.0f / (PM4_TWO_PI_F * g_cfg.lowpass_hz);
+        g_alpha_lp = dt / (tau + dt);
+    }
+    else
+    {
+        g_alpha_lp = 0.0f;
+    }
 
     /* Envelope LP (smoothed squared derivative). */
     tau = 1.0f / (PM4_TWO_PI_F * g_cfg.envelope_hz);
@@ -352,18 +411,35 @@ float ekg_raw_to_voltage(uint16_t raw)
 void ekg_process_raw(uint16_t raw, ekg_output_t *out)
 {
     float x = ekg_raw_to_voltage(raw);
+    float cleaned;
     float bp;
     float diff;
     float sq;
     float fs = (float)g_cfg.sample_rate_hz;
     uint8_t r_peak = 0U;
 
-    /* Band-pass chain = high-pass then low-pass. */
-    g_hp_y = g_alpha_hp * (g_hp_y + x - g_prev_x);
+    if (g_hp_enabled != 0U)
+    {
+        g_hp_y = g_alpha_hp * (g_hp_y + x - g_prev_x);
+        cleaned = g_hp_y;
+    }
+    else
+    {
+        cleaned = x - EKG_ADC_MID_VOLTAGE;
+        g_hp_y = cleaned;
+    }
     g_prev_x = x;
 
-    g_lp_y = g_lp_y + g_alpha_lp * (g_hp_y - g_lp_y);
-    bp = g_lp_y;
+    if (g_lp_enabled != 0U)
+    {
+        g_lp_y = g_lp_y + g_alpha_lp * (cleaned - g_lp_y);
+        bp = g_lp_y;
+    }
+    else
+    {
+        g_lp_y = cleaned;
+        bp = cleaned;
+    }
 
     /* QRS emphasis. */
     diff = bp - g_prev_lp;
@@ -553,9 +629,11 @@ void ADC_IRQHandler(void)
         g_irq_latest_raw = sample;
         g_irq_sample_ready = 1U;
     }
-    else if ((sr & ADC_SR_OVR) != 0U)
+
+    if ((sr & ADC_SR_OVR) != 0U)
     {
         (void)ADC3->DR;
+        ADC3->SR &= ~ADC_SR_OVR;
         g_irq_overrun_count++;
     }
 }
