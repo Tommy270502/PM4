@@ -166,7 +166,18 @@ int main(void) {
 	ret_val = fft_init();
 	error_handling(ret_val);
 
-	ekg_init(NULL);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
+	/* Tuned ECG config to reduce double-counting */
+	const ekg_config_t ekg_tuned_config = {
+		.sample_rate_hz = 100U,
+		.highpass_hz = 0.5f,
+		.lowpass_hz = 40.0f,
+		.envelope_hz = 8.0f,
+		.refractory_s = 0.30f,
+		.min_rr_s = 0.45f,
+		.max_rr_s = 2.0f
+	};
+
+	ekg_init(&ekg_tuned_config);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
 
 	radar_hr_init(&radar_hr_state, NULL);  // Radar HR estimator with defaults
 
