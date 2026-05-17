@@ -7,8 +7,8 @@
  * Acquisition architecture (non-blocking):
  * 1) TIM3 periodic interrupt defines sampling frequency
  * 2) TIM3 ISR triggers ADC3 conversion on PF6 (ADC3_IN4)
- * 3) ADC ISR stores newest raw sample and raises a sample-ready flag
- * 4) Main loop calls ekg_process_if_ready() to run signal processing
+ * 3) ADC ISR pushes raw samples into a small ring buffer
+ * 4) Main loop calls ekg_process_if_ready() to process queued samples
  *
  * The AD8232 cardiac-monitor analog network is the ECG waveform-shaping
  * filter: nominal 0.5 Hz high-pass and 40 Hz low-pass. The default digital
@@ -122,7 +122,7 @@ void ekg_read_and_process(ekg_output_t *out);
 uint8_t ekg_sample_ready(void);
 
 /**
- * @brief Fetch and clear the newest interrupt-acquired raw sample.
+ * @brief Fetch and clear the oldest queued interrupt-acquired raw sample.
  *
  * @param raw Output pointer for the sample.
  * @return 1 on success, 0 if no sample is available.

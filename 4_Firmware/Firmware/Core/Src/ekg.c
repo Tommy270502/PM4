@@ -22,6 +22,12 @@
 #define EKG_ADC_SAMPLE_TIME_BITS (5UL)   /* 84 ADC cycles on STM32F4. */
 #define EKG_ADC_STABILIZE_LOOPS  (1000U)
 #define EKG_ADC_MID_VOLTAGE      (0.5f * EKG_ADC_REF_VOLTAGE)
+#define EKG_SAMPLE_QUEUE_SIZE    (64U)
+#define EKG_SAMPLE_QUEUE_MASK    (EKG_SAMPLE_QUEUE_SIZE - 1U)
+
+#if ((EKG_SAMPLE_QUEUE_SIZE & EKG_SAMPLE_QUEUE_MASK) != 0U)
+#error "EKG_SAMPLE_QUEUE_SIZE must be a power of two."
+#endif
 
 const ekg_config_t EKG_CONFIG_DEFAULT = {
     .sample_rate_hz = EKG_DEFAULT_FS_HZ,
@@ -46,8 +52,12 @@ static ekg_config_t g_cfg = {
 static uint8_t g_hw_initialized = 0U;
 static volatile uint8_t g_sampling_enabled = 0U;
 
-/* Latest interrupt-acquired sample and status flags. */
-static volatile uint16_t g_irq_latest_raw = 0U;
+/* Interrupt-acquired sample queue and status flags. */
+static volatile uint16_t g_irq_raw_queue[EKG_SAMPLE_QUEUE_SIZE];
+static volatile uint32_t g_irq_sequence_queue[EKG_SAMPLE_QUEUE_SIZE];
+static volatile uint32_t g_irq_queue_head = 0U;
+static volatile uint32_t g_irq_queue_tail = 0U;
+static volatile uint32_t g_irq_sample_sequence = 0U;
 static volatile uint8_t g_irq_sample_ready = 0U;
 static volatile uint32_t g_irq_overrun_count = 0U;
 
@@ -69,10 +79,13 @@ static float g_env = 0.0f;
 static float g_noise_level = 1.0e-6f;
 static float g_signal_level = 5.0e-6f;
 static float g_threshold = 2.0e-6f;
-static uint8_t g_prev_above_threshold = 0U;
+static uint8_t g_candidate_active = 0U;
+static float g_candidate_peak_env = 0.0f;
+static uint32_t g_candidate_peak_sample = 0U;
 
 /* Beat timing state. */
 static uint32_t g_sample_index = 0U;
+static uint32_t g_processing_origin_sequence = 0U;
 static uint32_t g_last_accepted_peak = 0U;
 static uint32_t g_refractory_samples = 1U;
 static uint32_t g_min_rr_samples = 1U;
@@ -81,6 +94,10 @@ static uint32_t g_warmup_samples = EKG_DEFAULT_FS_HZ * EKG_WARMUP_SECONDS;
 
 static float g_latest_bpm = 0.0f;
 static uint8_t g_bpm_valid = 0U;
+
+static uint8_t ekg_get_next_irq_sample(uint16_t *raw, uint32_t *sequence);
+static void ekg_process_raw_at_index(uint16_t raw, uint32_t sample_index,
+                                     ekg_output_t *out);
 
 static float clampf(float value, float lo, float hi)
 {
@@ -304,6 +321,8 @@ static void ekg_update_coefficients(void)
 
 void ekg_reset_processing(void)
 {
+    uint32_t primask;
+
     g_prev_x = 0.0f;
     g_hp_y = 0.0f;
     g_lp_y = 0.0f;
@@ -313,13 +332,23 @@ void ekg_reset_processing(void)
     g_noise_level = 1.0e-6f;
     g_signal_level = 5.0e-6f;
     g_threshold = 2.0e-6f;
-    g_prev_above_threshold = 0U;
+    g_candidate_active = 0U;
+    g_candidate_peak_env = 0.0f;
+    g_candidate_peak_sample = 0U;
 
     g_sample_index = 0U;
     g_last_accepted_peak = 0U;
 
     g_latest_bpm = 0.0f;
     g_bpm_valid = 0U;
+
+    primask = __get_PRIMASK();
+    __disable_irq();
+    g_processing_origin_sequence = g_irq_sample_sequence;
+    if (primask == 0U)
+    {
+        __enable_irq();
+    }
 }
 
 void ekg_set_config(const ekg_config_t *config)
@@ -348,6 +377,10 @@ void ekg_start(void)
 
     __disable_irq();
     g_irq_sample_ready = 0U;
+    g_irq_queue_head = 0U;
+    g_irq_queue_tail = 0U;
+    g_irq_sample_sequence = 0U;
+    g_processing_origin_sequence = 0U;
     g_sampling_enabled = 1U;
     if (primask == 0U)
     {
@@ -378,7 +411,10 @@ void ekg_init(const ekg_config_t *config)
 
     g_irq_overrun_count = 0U;
     g_irq_sample_ready = 0U;
-    g_irq_latest_raw = 0U;
+    g_irq_queue_head = 0U;
+    g_irq_queue_tail = 0U;
+    g_irq_sample_sequence = 0U;
+    g_processing_origin_sequence = 0U;
 
     ekg_set_config(config);
     ekg_start();
@@ -409,6 +445,13 @@ float ekg_raw_to_voltage(uint16_t raw)
 }
 
 void ekg_process_raw(uint16_t raw, ekg_output_t *out)
+{
+    ekg_process_raw_at_index(raw, g_sample_index, out);
+    g_sample_index++;
+}
+
+static void ekg_process_raw_at_index(uint16_t raw, uint32_t sample_index,
+                                     ekg_output_t *out)
 {
     float x = ekg_raw_to_voltage(raw);
     float cleaned;
@@ -447,7 +490,7 @@ void ekg_process_raw(uint16_t raw, ekg_output_t *out)
     sq = diff * diff;
     g_env = g_env + g_alpha_env * (sq - g_env);
 
-    if (g_sample_index < g_warmup_samples)
+    if (sample_index < g_warmup_samples)
     {
         /* Startup: learn baseline noise to stabilize threshold. */
         g_noise_level = 0.99f * g_noise_level + 0.01f * g_env;
@@ -457,48 +500,68 @@ void ekg_process_raw(uint16_t raw, ekg_output_t *out)
     {
         uint8_t above = (g_env > g_threshold) ? 1U : 0U;
 
-        if ((above != 0U) && (g_prev_above_threshold == 0U))
+        if (above != 0U)
         {
-            uint32_t samples_since_peak = g_sample_index - g_last_accepted_peak;
-
-            if ((g_last_accepted_peak == 0U) || (samples_since_peak > g_refractory_samples))
+            if (g_candidate_active == 0U)
             {
-                if ((g_last_accepted_peak == 0U) ||
-                    ((samples_since_peak >= g_min_rr_samples) && (samples_since_peak <= g_max_rr_samples)))
-                {
-                    r_peak = 1U;
-
-                    if (g_last_accepted_peak != 0U)
-                    {
-                        float inst_bpm = PM4_BPM_PER_HZ * fs / (float)samples_since_peak;
-
-                        if (g_bpm_valid != 0U)
-                        {
-                            g_latest_bpm = 0.80f * g_latest_bpm + 0.20f * inst_bpm;
-                        }
-                        else
-                        {
-                            g_latest_bpm = inst_bpm;
-                            g_bpm_valid = 1U;
-                        }
-                    }
-
-                    g_last_accepted_peak = g_sample_index;
-                    g_signal_level = 0.875f * g_signal_level + 0.125f * g_env;
-                }
-                else
-                {
-                    g_noise_level = 0.875f * g_noise_level + 0.125f * g_env;
-                }
+                g_candidate_active = 1U;
+                g_candidate_peak_env = g_env;
+                g_candidate_peak_sample = sample_index;
             }
-            else
+            else if (g_env > g_candidate_peak_env)
             {
-                g_noise_level = 0.875f * g_noise_level + 0.125f * g_env;
+                g_candidate_peak_env = g_env;
+                g_candidate_peak_sample = sample_index;
             }
         }
         else
         {
-            g_noise_level = 0.95f * g_noise_level + 0.05f * g_env;
+            if (g_candidate_active != 0U)
+            {
+                uint32_t samples_since_peak = g_candidate_peak_sample - g_last_accepted_peak;
+
+                g_candidate_active = 0U;
+
+                if ((g_last_accepted_peak == 0U) || (samples_since_peak > g_refractory_samples))
+                {
+                    if ((g_last_accepted_peak == 0U) ||
+                        ((samples_since_peak >= g_min_rr_samples) &&
+                         (samples_since_peak <= g_max_rr_samples)))
+                    {
+                        r_peak = 1U;
+
+                        if (g_last_accepted_peak != 0U)
+                        {
+                            float inst_bpm = PM4_BPM_PER_HZ * fs / (float)samples_since_peak;
+
+                            if (g_bpm_valid != 0U)
+                            {
+                                g_latest_bpm = 0.80f * g_latest_bpm + 0.20f * inst_bpm;
+                            }
+                            else
+                            {
+                                g_latest_bpm = inst_bpm;
+                                g_bpm_valid = 1U;
+                            }
+                        }
+
+                        g_last_accepted_peak = g_candidate_peak_sample;
+                        g_signal_level = 0.875f * g_signal_level + 0.125f * g_candidate_peak_env;
+                    }
+                    else
+                    {
+                        g_noise_level = 0.875f * g_noise_level + 0.125f * g_candidate_peak_env;
+                    }
+                }
+                else
+                {
+                    g_noise_level = 0.875f * g_noise_level + 0.125f * g_candidate_peak_env;
+                }
+            }
+            else
+            {
+                g_noise_level = 0.95f * g_noise_level + 0.05f * g_env;
+            }
         }
 
         g_threshold = g_noise_level + 0.25f * (g_signal_level - g_noise_level);
@@ -506,11 +569,7 @@ void ekg_process_raw(uint16_t raw, ekg_output_t *out)
         {
             g_threshold = EKG_MIN_THRESHOLD;
         }
-
-        g_prev_above_threshold = above;
     }
-
-    g_sample_index++;
 
     if (out != 0)
     {
@@ -536,11 +595,12 @@ uint8_t ekg_sample_ready(void)
     return g_irq_sample_ready;
 }
 
-uint8_t ekg_get_latest_raw_sample(uint16_t *raw)
+static uint8_t ekg_get_next_irq_sample(uint16_t *raw, uint32_t *sequence)
 {
     uint32_t primask;
+    uint32_t tail;
 
-    if (raw == 0)
+    if ((raw == 0) || (sequence == 0))
     {
         return 0U;
     }
@@ -557,8 +617,16 @@ uint8_t ekg_get_latest_raw_sample(uint16_t *raw)
         return 0U;
     }
 
-    *raw = g_irq_latest_raw;
-    g_irq_sample_ready = 0U;
+    tail = g_irq_queue_tail;
+    *raw = g_irq_raw_queue[tail];
+    *sequence = g_irq_sequence_queue[tail];
+
+    tail = (tail + 1U) & EKG_SAMPLE_QUEUE_MASK;
+    g_irq_queue_tail = tail;
+    if (tail == g_irq_queue_head)
+    {
+        g_irq_sample_ready = 0U;
+    }
 
     if (primask == 0U)
     {
@@ -568,16 +636,36 @@ uint8_t ekg_get_latest_raw_sample(uint16_t *raw)
     return 1U;
 }
 
+uint8_t ekg_get_latest_raw_sample(uint16_t *raw)
+{
+    uint32_t sequence;
+
+    return ekg_get_next_irq_sample(raw, &sequence);
+}
+
 uint8_t ekg_process_if_ready(ekg_output_t *out)
 {
     uint16_t raw;
+    uint32_t sequence;
+    uint32_t sample_index;
 
-    if (ekg_get_latest_raw_sample(&raw) == 0U)
+    if (ekg_get_next_irq_sample(&raw, &sequence) == 0U)
     {
         return 0U;
     }
 
-    ekg_process_raw(raw, out);
+    if (sequence >= g_processing_origin_sequence)
+    {
+        sample_index = sequence - g_processing_origin_sequence;
+    }
+    else
+    {
+        sample_index = 0U;
+    }
+
+    ekg_process_raw_at_index(raw, sample_index, out);
+    g_sample_index = sample_index + 1U;
+
     return 1U;
 }
 
@@ -620,13 +708,19 @@ void ADC_IRQHandler(void)
     if ((sr & ADC_SR_EOC) != 0U)
     {
         uint16_t sample = (uint16_t)(ADC3->DR & EKG_ADC_MAX_COUNT);
+        uint32_t head = g_irq_queue_head;
+        uint32_t next_head = (head + 1U) & EKG_SAMPLE_QUEUE_MASK;
 
-        if (g_irq_sample_ready != 0U)
+        if (next_head == g_irq_queue_tail)
         {
+            g_irq_queue_tail = (g_irq_queue_tail + 1U) & EKG_SAMPLE_QUEUE_MASK;
             g_irq_overrun_count++;
         }
 
-        g_irq_latest_raw = sample;
+        g_irq_raw_queue[head] = sample;
+        g_irq_sequence_queue[head] = g_irq_sample_sequence;
+        g_irq_sample_sequence++;
+        g_irq_queue_head = next_head;
         g_irq_sample_ready = 1U;
     }
 
