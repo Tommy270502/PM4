@@ -24,7 +24,7 @@
  * Defines
  *****************************************************************************/
 /** TX timeout for a single HAL_UART_Transmit call [ms]. */
-#define OPENLOG_TX_TIMEOUT_MS   50U
+#define OPENLOG_TX_TIMEOUT_MS   200U
 
 /** Baud rate for OpenLog default serial interface. */
 #define OPENLOG_BAUD_RATE       9600U
@@ -79,7 +79,9 @@ uint32_t openlog_get_drop_count(void);
 /**
  * @brief  Write one CSV data row if logging is enabled.
  *
- * Format: tick_ms,bpm,valid,state\r\n
+ * Format:
+ * tick_ms,bpm,valid,state,phase_flags,clip_count,low_signal_count,
+ * mean_radius_counts,radar_overruns,dma_errors\r\n
  *
  * Best-effort: if the UART is busy or fails, the row is silently dropped
  * and the internal drop counter is incremented.
@@ -88,10 +90,16 @@ uint32_t openlog_get_drop_count(void);
  * @param[in] bpm       Heart-rate estimate.
  * @param[in] valid     true if HR is valid (LOCKED + accepted).
  * @param[in] state     Current state-machine state.
+ * @param[in] phase_quality Latest radar phase/displacement quality snapshot.
+ * @param[in] radar_overruns Number of unconsumed DMA chunks overwritten.
+ * @param[in] dma_errors Number of DMA error flags observed.
  */
 void openlog_write_row(uint32_t tick_ms,
                        float bpm,
                        bool valid,
-                       radar_hr_sm_state_t state);
+                       radar_hr_sm_state_t state,
+                       const radar_phase_quality_t *phase_quality,
+                       uint32_t radar_overruns,
+                       uint32_t dma_errors);
 
 #endif /* OPENLOG_UART_H_ */

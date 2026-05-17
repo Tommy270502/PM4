@@ -75,9 +75,11 @@ typedef struct {
 
     /* Folded spectrum scratch (only band_len entries used). */
     float32_t S[RADAR_HR_MAX_BAND_BINS];
+    float32_t scratch[RADAR_HR_MAX_BAND_BINS];
 
     /* Candidate scratch */
     radar_hr_candidate_t candidates[RADAR_HR_MAX_CANDIDATES];
+    uint32_t  top_k_idx[RADAR_HR_MAX_CANDIDATES];
     uint32_t  num_candidates;
 
     /* State machine */
@@ -126,8 +128,9 @@ void radar_hr_init(radar_hr_state_t *st, const radar_hr_config_t *cfg);
  * @brief  Process one FFT frame through the full HR pipeline.
  *
  * Steps 1-6 of the algorithm are executed in sequence.  The caller supplies
- * the magnitude spectrum produced by fft_iq_centered() (size =
- * RADAR_CHANNEL_SAMPLES, DC at index N/2).
+ * a shifted magnitude spectrum (size = RADAR_CHANNEL_SAMPLES, DC at index
+ * N/2). The preferred input is the displacement spectrum produced by
+ * fft_real_centered().
  *
  * @param[in,out] st               Algorithm state.
  * @param[in]     spectrum_shifted  Shifted magnitude spectrum (size N).
@@ -136,6 +139,15 @@ void radar_hr_init(radar_hr_state_t *st, const radar_hr_config_t *cfg);
 void radar_hr_process_frame(radar_hr_state_t *st,
                             const float32_t *spectrum_shifted,
                             radar_hr_output_t *out);
+
+/**
+ * @brief  Advance the HR state machine with an explicitly invalid frame.
+ *
+ * Use this when upstream radar phase/displacement quality is invalid, so the
+ * state machine can age out stale locks instead of processing bad spectra.
+ */
+void radar_hr_process_invalid_frame(radar_hr_state_t *st,
+                                    radar_hr_output_t *out);
 
 /**
  * @brief  Return current state enum for debug display.

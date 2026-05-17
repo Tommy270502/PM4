@@ -69,4 +69,19 @@ HAL_StatusTypeDef fft_init(void);
 HAL_StatusTypeDef fft_iq_centered(const float32_t i_in[], const float32_t q_in[],
                                   float32_t out[]);
 
+/**
+ * @brief Computes a centered magnitude spectrum from a real-valued signal.
+ *
+ * The input mean is removed and the same Hann window as the I/Q FFT is
+ * applied. The output is fft-shifted so DC is at RADAR_CHANNEL_SAMPLES / 2.
+ *
+ * @param x_in Pointer to the real-valued time-domain samples
+ *             (size: RADAR_CHANNEL_SAMPLES).
+ * @param out  Pointer to the shifted magnitude spectrum output
+ *             (size: RADAR_CHANNEL_SAMPLES).
+ *
+ * @return HAL_OK on success, HAL_ERROR on invalid arguments or missing init.
+ */
+HAL_StatusTypeDef fft_real_centered(const float32_t x_in[], float32_t out[]);
+
 #endif

@@ -19,6 +19,7 @@
 #include "menu.h"
 #include "ui_layout.h"
 #include "ekg.h"
+#include "radar.h"
 #include "radar_heartrate.h"
 
 /******************************************************************************
@@ -39,6 +40,7 @@
 typedef struct {
 	const float32_t *radar_i_samples;
 	const float32_t *radar_q_samples;
+	const float32_t *radar_displacement_samples;
 	const float32_t *spectrum_shifted;
 	uint8_t current_filter_index;
 	const char * const *filter_names;
@@ -52,6 +54,9 @@ typedef struct {
 	float32_t radar_hr_bpm;
 	bool      radar_hr_valid;
 	radar_hr_sm_state_t radar_hr_state;
+	radar_phase_quality_t radar_phase_quality;
+	uint32_t  radar_dma_overrun_count;
+	uint32_t  radar_dma_error_count;
 	/* OpenLog logger status (MENU_SIX) */
 	bool      logging_enabled;
 	uint32_t  logging_drop_count;

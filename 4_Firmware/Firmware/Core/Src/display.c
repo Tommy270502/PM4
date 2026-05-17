@@ -365,6 +365,40 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
             {
                 BSP_LCD_DisplayStringAt(0, 130, (uint8_t*) "SEARCH", CENTER_MODE);
             }
+
+            BSP_LCD_SetFont(&Font16);
+            if ((data->radar_phase_quality.flags & RADAR_PHASE_FLAG_VALID) != 0U)
+            {
+                BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+                BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "Signal: OK", CENTER_MODE);
+            }
+            else if ((data->radar_phase_quality.flags & RADAR_PHASE_FLAG_CLIPPING) != 0U)
+            {
+                BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "Signal: CLIP", CENTER_MODE);
+            }
+            else if ((data->radar_phase_quality.flags & RADAR_PHASE_FLAG_LOW_SIGNAL) != 0U)
+            {
+                BSP_LCD_SetTextColor(LCD_COLOR_ORANGE);
+                BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "Signal: LOW", CENTER_MODE);
+            }
+            else
+            {
+                BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+                BSP_LCD_DisplayStringAt(0, 165, (uint8_t*) "Signal: ---", CENTER_MODE);
+            }
+
+            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+            snprintf(text, sizeof(text), "R:%lu C:%lu L:%lu",
+                    (unsigned long)(data->radar_phase_quality.mean_radius_counts + 0.5f),
+                    (unsigned long)data->radar_phase_quality.clipped_sample_count,
+                    (unsigned long)data->radar_phase_quality.low_signal_sample_count);
+            BSP_LCD_DisplayStringAt(0, 198, (uint8_t*) text, CENTER_MODE);
+
+            snprintf(text, sizeof(text), "Ovr:%lu Err:%lu",
+                    (unsigned long)data->radar_dma_overrun_count,
+                    (unsigned long)data->radar_dma_error_count);
+            BSP_LCD_DisplayStringAt(0, 226, (uint8_t*) text, CENTER_MODE);
         }
         break;
     case MENU_SIX:

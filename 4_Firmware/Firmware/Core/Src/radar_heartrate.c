@@ -20,7 +20,7 @@
 static void build_folded_spectrum(radar_hr_state_t *st,
                                   const float32_t *spectrum_shifted);
 static void extract_candidates(radar_hr_state_t *st);
-static float32_t compute_noise_floor(const radar_hr_state_t *st);
+static float32_t compute_noise_floor(radar_hr_state_t *st);
 static void confidence_check(radar_hr_state_t *st, float32_t noise_floor);
 static void sm_reset_to_unlocked(radar_hr_state_t *st);
 static float32_t median3(float32_t a, float32_t b, float32_t c);
@@ -31,8 +31,8 @@ static float32_t median_buf_get(const radar_hr_state_t *st);
  * Default configuration (matches heart_rate_algorith.md table)
  *****************************************************************************/
 static const radar_hr_config_t default_cfg = {
-    .f_min           = 0.55f,
-    .f_max           = 3.70f,
+    .f_min           = 0.80f,
+    .f_max           = 3.00f,
     .K               = 3U,
     .W_mask          = 2U,
     .PNR_min         = 7.0f,
@@ -62,6 +62,11 @@ void radar_hr_init(radar_hr_state_t *st, const radar_hr_config_t *cfg)
         st->cfg = *cfg;
     } else {
         st->cfg = default_cfg;
+    }
+    if (st->cfg.K == 0U) {
+        st->cfg.K = 1U;
+    } else if (st->cfg.K > RADAR_HR_MAX_CANDIDATES) {
+        st->cfg.K = RADAR_HR_MAX_CANDIDATES;
     }
 
     /* Cache constants ----------------------------------------------------- */
@@ -256,6 +261,34 @@ invalid_frame:
 
 /* ------------------------------------------------------------------------- */
 
+void radar_hr_process_invalid_frame(radar_hr_state_t *st,
+                                    radar_hr_output_t *out)
+{
+    if ((st == NULL) || (out == NULL)) {
+        return;
+    }
+
+    st->consecutive_invalid++;
+    st->consecutive_valid = 0U;
+
+    if (st->sm_state == RADAR_HR_UNLOCKED) {
+        if (st->consecutive_invalid >= 5U) {
+            st->median_count = 0U;
+            st->median_idx = 0U;
+        }
+    } else {
+        if (st->consecutive_invalid >= st->cfg.N_reset) {
+            sm_reset_to_unlocked(st);
+        }
+    }
+
+    out->bpm = 0.0f;
+    out->valid = false;
+    out->state = st->sm_state;
+}
+
+/* ------------------------------------------------------------------------- */
+
 radar_hr_sm_state_t radar_hr_get_state(const radar_hr_state_t *st)
 {
     if (st == NULL) {
@@ -310,7 +343,7 @@ static void extract_candidates(radar_hr_state_t *st)
 
     /* --- Compute median of S over HR band for pre-filter. --- */
     /* Copy to a scratch area (reuse candidates scratch for sorting). */
-    float32_t sorted[RADAR_HR_MAX_BAND_BINS];
+    float32_t *sorted = st->scratch;
     memcpy(sorted, st->S, st->band_len * sizeof(float32_t));
 
     /* Simple selection of median via partial sort (band_len is small). */
@@ -326,7 +359,6 @@ static void extract_candidates(radar_hr_state_t *st)
     float32_t s_median = sorted[st->band_len / 2U];
 
     /* --- Find local maxima, pre-filter, keep top-K. --- */
-    uint32_t top_k_idx[RADAR_HR_MAX_CANDIDATES];
     uint32_t top_k_count = 0U;
 
     for (uint32_t n = 1U; n < (st->band_len - 1U); n++) {
@@ -336,12 +368,12 @@ static void extract_candidates(radar_hr_state_t *st)
                 continue;
             }
             if (top_k_count < st->cfg.K) {
-                insert_sorted_desc(st->S, top_k_idx, top_k_count, n);
+                insert_sorted_desc(st->S, st->top_k_idx, top_k_count, n);
                 top_k_count++;
-            } else if (st->S[n] > st->S[top_k_idx[top_k_count - 1U]]) {
+            } else if (st->S[n] > st->S[st->top_k_idx[top_k_count - 1U]]) {
                 /* Replace weakest. */
                 top_k_count--;  /* temporarily remove last */
-                insert_sorted_desc(st->S, top_k_idx, top_k_count, n);
+                insert_sorted_desc(st->S, st->top_k_idx, top_k_count, n);
                 top_k_count++;
             }
         }
@@ -349,7 +381,7 @@ static void extract_candidates(radar_hr_state_t *st)
 
     /* --- Parabolic interpolation for each candidate. --- */
     for (uint32_t c = 0U; c < top_k_count; c++) {
-        uint32_t n0 = top_k_idx[c];
+        uint32_t n0 = st->top_k_idx[c];
         /* Map band-relative index to absolute shifted-spectrum bin. */
         uint32_t abs_bin = st->band_i[n0];
 
@@ -387,13 +419,13 @@ static void extract_candidates(radar_hr_state_t *st)
 
 /* ----- Step 3: Confidence check ------------------------------------------ */
 
-static float32_t compute_noise_floor(const radar_hr_state_t *st)
+static float32_t compute_noise_floor(radar_hr_state_t *st)
 {
     /*
      * Noise floor = median of S[n] over HR band, excluding +/-W_mask bins
      * around each candidate peak.
      */
-    float32_t buf[RADAR_HR_MAX_BAND_BINS];
+    float32_t *buf = st->scratch;
     uint32_t  buf_count = 0U;
 
     for (uint32_t n = 0U; n < st->band_len; n++) {

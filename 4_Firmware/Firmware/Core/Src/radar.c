@@ -5,10 +5,37 @@
 
 #include "radar.h"
 
+#include <math.h>
 #include <stdint.h>
 
+#include "math_constants.h"
 #include "stm32f4xx.h"
 #include "stm32f429i_discovery.h"
+
+#define RADAR_ADC_MAX_COUNT             4095U
+#define RADAR_DEFAULT_ADC_CENTER_COUNT  2048.0f
+#define RADAR_KLC5_WAVELENGTH_M         0.0124266f
+#define RADAR_DEFAULT_OFFSET_ALPHA      0.05f
+#define RADAR_DEFAULT_GAIN_ALPHA        0.05f
+#define RADAR_DEFAULT_MIN_RADIUS_COUNT  20.0f
+#define RADAR_DEFAULT_MIN_GAIN_RMS      2.0f
+#define RADAR_DEFAULT_LOW_SIGNAL_RATIO  0.20f
+#define RADAR_DEFAULT_CLIP_LOW_COUNT    8U
+#define RADAR_DEFAULT_CLIP_HIGH_COUNT   4087U
+#define RADAR_PHASE_MIN_GAIN            0.25f
+#define RADAR_PHASE_MAX_GAIN            4.0f
+
+const radar_phase_config_t RADAR_PHASE_CONFIG_DEFAULT = {
+    .adc_center_count = RADAR_DEFAULT_ADC_CENTER_COUNT,
+    .wavelength_m = RADAR_KLC5_WAVELENGTH_M,
+    .offset_alpha = RADAR_DEFAULT_OFFSET_ALPHA,
+    .gain_alpha = RADAR_DEFAULT_GAIN_ALPHA,
+    .min_radius_counts = RADAR_DEFAULT_MIN_RADIUS_COUNT,
+    .min_gain_rms_counts = RADAR_DEFAULT_MIN_GAIN_RMS,
+    .max_low_signal_ratio = RADAR_DEFAULT_LOW_SIGNAL_RATIO,
+    .clip_low_count = RADAR_DEFAULT_CLIP_LOW_COUNT,
+    .clip_high_count = RADAR_DEFAULT_CLIP_HIGH_COUNT
+};
 
 static uint32_t radar_iq_buffer_ping[RADAR_FRAME_ADVANCE_SAMPLES];
 static uint32_t radar_iq_buffer_pong[RADAR_FRAME_ADVANCE_SAMPLES];
@@ -16,11 +43,17 @@ static uint32_t radar_iq_buffer_pong[RADAR_FRAME_ADVANCE_SAMPLES];
 static float32_t *radar_i_buffer_pointer = 0;
 static float32_t *radar_q_buffer_pointer = 0;
 
-static uint8_t radar_data_ready = 0;
+static volatile uint8_t radar_data_ready = 0U;
+static volatile uint8_t radar_completed_buffer_index = 0U;
+static volatile uint32_t radar_dma_sequence = 0U;
+static volatile uint32_t radar_overrun_count = 0U;
+static volatile uint32_t radar_dma_error_count = 0U;
 
 static void timer2_init_sample_rate(void);
 static void adc_dual_dma_init(void);
-static void unpack_iq_samples(uint32_t *packed_buffer);
+static void unpack_iq_samples(const uint32_t *packed_buffer);
+static float32_t radar_clampf(float32_t value, float32_t lo, float32_t hi);
+static void radar_phase_sanitize_config(radar_phase_config_t *config);
 static bool radar_get_spectrum_bin_window(float32_t display_hz,
                                           uint32_t *center_bin,
                                           uint32_t *start_bin,
@@ -65,6 +98,10 @@ void radar_start(void)
 
     /* Clear stale flags and start timer-triggered conversions. */
     radar_data_ready = 0;
+    radar_completed_buffer_index = 0U;
+    radar_dma_sequence = 0U;
+    radar_overrun_count = 0U;
+    radar_dma_error_count = 0U;
     TIM2->EGR = TIM_EGR_UG;
     TIM2->CR1 |= TIM_CR1_CEN;
 }
@@ -76,7 +113,338 @@ uint8_t radar_frame_ready(void)
 
 void radar_clear_frame_ready(void)
 {
-    radar_data_ready = 0;
+    uint32_t primask = __get_PRIMASK();
+
+    __disable_irq();
+    radar_data_ready = 0U;
+    if (primask == 0U)
+    {
+        __enable_irq();
+    }
+}
+
+uint8_t radar_get_latest_chunk(void)
+{
+    uint8_t completed_buffer_index;
+    const uint32_t *completed_buffer;
+    uint32_t primask;
+
+    if ((radar_i_buffer_pointer == 0) || (radar_q_buffer_pointer == 0))
+    {
+        return 0U;
+    }
+
+    primask = __get_PRIMASK();
+    __disable_irq();
+
+    if (radar_data_ready == 0U)
+    {
+        if (primask == 0U)
+        {
+            __enable_irq();
+        }
+        return 0U;
+    }
+
+    completed_buffer_index = radar_completed_buffer_index;
+    radar_data_ready = 0U;
+
+    if (primask == 0U)
+    {
+        __enable_irq();
+    }
+
+    completed_buffer = (completed_buffer_index == 0U) ?
+            radar_iq_buffer_ping : radar_iq_buffer_pong;
+
+    unpack_iq_samples(completed_buffer);
+
+    return 1U;
+}
+
+uint32_t radar_get_dma_sequence(void)
+{
+    return radar_dma_sequence;
+}
+
+uint32_t radar_get_overrun_count(void)
+{
+    return radar_overrun_count;
+}
+
+uint32_t radar_get_dma_error_count(void)
+{
+    return radar_dma_error_count;
+}
+
+void radar_phase_init(radar_phase_state_t *state, const radar_phase_config_t *config)
+{
+    if (state == 0)
+    {
+        return;
+    }
+
+    if (config != 0)
+    {
+        state->cfg = *config;
+    }
+    else
+    {
+        state->cfg = RADAR_PHASE_CONFIG_DEFAULT;
+    }
+
+    radar_phase_sanitize_config(&state->cfg);
+    radar_phase_reset(state);
+}
+
+void radar_phase_reset(radar_phase_state_t *state)
+{
+    if (state == 0)
+    {
+        return;
+    }
+
+    state->i_offset_counts = state->cfg.adc_center_count;
+    state->q_offset_counts = state->cfg.adc_center_count;
+    state->i_rms_counts = 0.0f;
+    state->q_rms_counts = 0.0f;
+    state->i_gain = 1.0f;
+    state->q_gain = 1.0f;
+    state->previous_phase_rad = 0.0f;
+    state->unwrapped_phase_rad = 0.0f;
+    state->reference_phase_rad = 0.0f;
+    state->phase_initialized = 0U;
+}
+
+bool radar_phase_process_chunk(radar_phase_state_t *state,
+                               const float32_t *i_counts,
+                               const float32_t *q_counts,
+                               float32_t *displacement_m,
+                               uint32_t count,
+                               radar_phase_quality_t *quality)
+{
+    radar_phase_quality_t local_quality = {0};
+    float32_t i_sum = 0.0f;
+    float32_t q_sum = 0.0f;
+    float32_t i_square_sum = 0.0f;
+    float32_t q_square_sum = 0.0f;
+    float32_t radius_sum = 0.0f;
+    float32_t phase_to_displacement;
+    float32_t low_signal_limit;
+
+    if ((state == 0) || (i_counts == 0) || (q_counts == 0) ||
+            (displacement_m == 0) || (count == 0U))
+    {
+        return false;
+    }
+
+    local_quality.sample_count = count;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        float32_t i_raw = i_counts[i];
+        float32_t q_raw = q_counts[i];
+
+        i_sum += i_raw;
+        q_sum += q_raw;
+
+        if ((i_raw <= (float32_t)state->cfg.clip_low_count) ||
+                (q_raw <= (float32_t)state->cfg.clip_low_count) ||
+                (i_raw >= (float32_t)state->cfg.clip_high_count) ||
+                (q_raw >= (float32_t)state->cfg.clip_high_count))
+        {
+            local_quality.clipped_sample_count++;
+        }
+    }
+
+    {
+        float32_t inv_count = 1.0f / (float32_t)count;
+        float32_t i_mean = i_sum * inv_count;
+        float32_t q_mean = q_sum * inv_count;
+
+        state->i_offset_counts += state->cfg.offset_alpha *
+                (i_mean - state->i_offset_counts);
+        state->q_offset_counts += state->cfg.offset_alpha *
+                (q_mean - state->q_offset_counts);
+    }
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        float32_t i_centered = i_counts[i] - state->i_offset_counts;
+        float32_t q_centered = q_counts[i] - state->q_offset_counts;
+
+        i_square_sum += i_centered * i_centered;
+        q_square_sum += q_centered * q_centered;
+    }
+
+    {
+        float32_t inv_count = 1.0f / (float32_t)count;
+        float32_t i_rms = sqrtf(i_square_sum * inv_count);
+        float32_t q_rms = sqrtf(q_square_sum * inv_count);
+
+        if ((i_rms >= state->cfg.min_gain_rms_counts) &&
+                (q_rms >= state->cfg.min_gain_rms_counts))
+        {
+            if ((state->i_rms_counts <= 0.0f) || (state->q_rms_counts <= 0.0f))
+            {
+                state->i_rms_counts = i_rms;
+                state->q_rms_counts = q_rms;
+            }
+            else
+            {
+                state->i_rms_counts += state->cfg.gain_alpha *
+                        (i_rms - state->i_rms_counts);
+                state->q_rms_counts += state->cfg.gain_alpha *
+                        (q_rms - state->q_rms_counts);
+            }
+        }
+    }
+
+    if ((state->i_rms_counts >= state->cfg.min_gain_rms_counts) &&
+            (state->q_rms_counts >= state->cfg.min_gain_rms_counts))
+    {
+        float32_t mean_rms = 0.5f * (state->i_rms_counts + state->q_rms_counts);
+
+        state->i_gain = radar_clampf(mean_rms / state->i_rms_counts,
+                RADAR_PHASE_MIN_GAIN, RADAR_PHASE_MAX_GAIN);
+        state->q_gain = radar_clampf(mean_rms / state->q_rms_counts,
+                RADAR_PHASE_MIN_GAIN, RADAR_PHASE_MAX_GAIN);
+    }
+    else
+    {
+        state->i_gain = 1.0f;
+        state->q_gain = 1.0f;
+    }
+
+    phase_to_displacement = state->cfg.wavelength_m / (4.0f * PM4_PI_F);
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        float32_t i_corr = (i_counts[i] - state->i_offset_counts) * state->i_gain;
+        float32_t q_corr = (q_counts[i] - state->q_offset_counts) * state->q_gain;
+        float32_t radius = sqrtf((i_corr * i_corr) + (q_corr * q_corr));
+
+        radius_sum += radius;
+
+        if (radius < state->cfg.min_radius_counts)
+        {
+            local_quality.low_signal_sample_count++;
+            displacement_m[i] = (state->unwrapped_phase_rad - state->reference_phase_rad) *
+                    phase_to_displacement;
+            continue;
+        }
+
+        {
+            float32_t phase = atan2f(q_corr, i_corr);
+
+            if (state->phase_initialized == 0U)
+            {
+                state->previous_phase_rad = phase;
+                state->unwrapped_phase_rad = phase;
+                state->reference_phase_rad = phase;
+                state->phase_initialized = 1U;
+            }
+            else
+            {
+                float32_t delta = phase - state->previous_phase_rad;
+
+                while (delta > PM4_PI_F)
+                {
+                    delta -= PM4_TWO_PI_F;
+                }
+                while (delta < -PM4_PI_F)
+                {
+                    delta += PM4_TWO_PI_F;
+                }
+
+                state->unwrapped_phase_rad += delta;
+                state->previous_phase_rad = phase;
+            }
+
+            displacement_m[i] = (state->unwrapped_phase_rad - state->reference_phase_rad) *
+                    phase_to_displacement;
+            local_quality.valid_sample_count++;
+        }
+    }
+
+    local_quality.mean_radius_counts = radius_sum / (float32_t)count;
+    local_quality.i_offset_counts = state->i_offset_counts;
+    local_quality.q_offset_counts = state->q_offset_counts;
+    local_quality.i_gain = state->i_gain;
+    local_quality.q_gain = state->q_gain;
+
+    if (local_quality.clipped_sample_count != 0U)
+    {
+        local_quality.flags |= RADAR_PHASE_FLAG_CLIPPING;
+    }
+
+    low_signal_limit = state->cfg.max_low_signal_ratio * (float32_t)count;
+    if ((float32_t)local_quality.low_signal_sample_count > low_signal_limit)
+    {
+        local_quality.flags |= RADAR_PHASE_FLAG_LOW_SIGNAL;
+    }
+
+    if ((local_quality.flags & (RADAR_PHASE_FLAG_CLIPPING | RADAR_PHASE_FLAG_LOW_SIGNAL)) == 0U)
+    {
+        local_quality.flags |= RADAR_PHASE_FLAG_VALID;
+    }
+
+    if (quality != 0)
+    {
+        *quality = local_quality;
+    }
+
+    return true;
+}
+
+bool radar_append_displacement_chunk(float32_t *displacement_history,
+                                     const float32_t *displacement_acquired,
+                                     uint32_t *window_fill_samples)
+{
+    uint32_t history_keep;
+
+    if ((displacement_history == 0) || (displacement_acquired == 0) ||
+            (window_fill_samples == 0))
+    {
+        return false;
+    }
+
+    history_keep = RADAR_CHANNEL_SAMPLES - RADAR_FRAME_ADVANCE_SAMPLES;
+
+    for (uint32_t i = 0; i < history_keep; i++)
+    {
+        displacement_history[i] = displacement_history[i + RADAR_FRAME_ADVANCE_SAMPLES];
+    }
+
+    for (uint32_t i = 0; i < RADAR_FRAME_ADVANCE_SAMPLES; i++)
+    {
+        displacement_history[history_keep + i] = displacement_acquired[i];
+    }
+
+    if (*window_fill_samples < RADAR_CHANNEL_SAMPLES)
+    {
+        *window_fill_samples += RADAR_FRAME_ADVANCE_SAMPLES;
+        if (*window_fill_samples > RADAR_CHANNEL_SAMPLES)
+        {
+            *window_fill_samples = RADAR_CHANNEL_SAMPLES;
+        }
+    }
+
+    return (*window_fill_samples >= RADAR_CHANNEL_SAMPLES);
+}
+
+void radar_prepare_displacement_window(float32_t *displacement_samples,
+                                       const float32_t *displacement_history)
+{
+    if ((displacement_samples == 0) || (displacement_history == 0))
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < RADAR_CHANNEL_SAMPLES; i++)
+    {
+        displacement_samples[i] = displacement_history[i];
+    }
 }
 
 bool radar_append_latest_chunk(float32_t *i_history, float32_t *q_history,
@@ -369,6 +737,58 @@ void radar_update_peak_readout(const float32_t *spectrum_shifted,
     }
 }
 
+static float32_t radar_clampf(float32_t value, float32_t lo, float32_t hi)
+{
+    if (value < lo)
+    {
+        return lo;
+    }
+    if (value > hi)
+    {
+        return hi;
+    }
+    return value;
+}
+
+static void radar_phase_sanitize_config(radar_phase_config_t *config)
+{
+    if (config == 0)
+    {
+        return;
+    }
+
+    if ((config->adc_center_count < 0.0f) ||
+            (config->adc_center_count > (float32_t)RADAR_ADC_MAX_COUNT))
+    {
+        config->adc_center_count = RADAR_DEFAULT_ADC_CENTER_COUNT;
+    }
+    if (config->wavelength_m <= 0.0f)
+    {
+        config->wavelength_m = RADAR_KLC5_WAVELENGTH_M;
+    }
+
+    config->offset_alpha = radar_clampf(config->offset_alpha, 0.0f, 1.0f);
+    config->gain_alpha = radar_clampf(config->gain_alpha, 0.0f, 1.0f);
+
+    if (config->min_radius_counts < 0.0f)
+    {
+        config->min_radius_counts = RADAR_DEFAULT_MIN_RADIUS_COUNT;
+    }
+    if (config->min_gain_rms_counts <= 0.0f)
+    {
+        config->min_gain_rms_counts = RADAR_DEFAULT_MIN_GAIN_RMS;
+    }
+
+    config->max_low_signal_ratio = radar_clampf(config->max_low_signal_ratio, 0.0f, 1.0f);
+
+    if ((config->clip_high_count > RADAR_ADC_MAX_COUNT) ||
+            (config->clip_low_count >= config->clip_high_count))
+    {
+        config->clip_low_count = RADAR_DEFAULT_CLIP_LOW_COUNT;
+        config->clip_high_count = RADAR_DEFAULT_CLIP_HIGH_COUNT;
+    }
+}
+
 static bool radar_get_spectrum_bin_window(float32_t display_hz,
                                           uint32_t *center_bin,
                                           uint32_t *start_bin,
@@ -500,7 +920,7 @@ static void adc_dual_dma_init(void)
     NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 }
 
-static void unpack_iq_samples(uint32_t *packed_buffer)
+static void unpack_iq_samples(const uint32_t *packed_buffer)
 {
     if ((packed_buffer == 0) || (radar_i_buffer_pointer == 0) || (radar_q_buffer_pointer == 0))
     {
@@ -519,24 +939,39 @@ static void unpack_iq_samples(uint32_t *packed_buffer)
 
 void DMA2_Stream0_IRQHandler(void)
 {
-    if (DMA2->LISR & DMA_LISR_TCIF0)
+    uint32_t lisr = DMA2->LISR;
+
+    if ((lisr & (DMA_LISR_FEIF0 | DMA_LISR_DMEIF0 | DMA_LISR_TEIF0)) != 0U)
     {
-        uint32_t *completed_buffer;
+        radar_dma_error_count++;
+    }
+
+    DMA2->LIFCR = DMA_LIFCR_CFEIF0 | DMA_LIFCR_CDMEIF0 |
+                  DMA_LIFCR_CTEIF0 | DMA_LIFCR_CHTIF0;
+
+    if ((lisr & DMA_LISR_TCIF0) != 0U)
+    {
+        uint8_t completed_buffer_index;
 
         DMA2->LIFCR = DMA_LIFCR_CTCIF0;
 
         if ((DMA2_Stream0->CR & DMA_SxCR_CT) == 0U)
         {
-            completed_buffer = radar_iq_buffer_pong;
+            completed_buffer_index = 1U;
         }
         else
         {
-            completed_buffer = radar_iq_buffer_ping;
+            completed_buffer_index = 0U;
         }
 
-        unpack_iq_samples(completed_buffer);
-        radar_data_ready = 1;
-        BSP_LED_Toggle(LED4);
+        if (radar_data_ready != 0U)
+        {
+            radar_overrun_count++;
+        }
+
+        radar_completed_buffer_index = completed_buffer_index;
+        radar_dma_sequence++;
+        radar_data_ready = 1U;
     }
 }
 

@@ -45,13 +45,18 @@
 
 static float32_t radar_i_acquired[RADAR_FRAME_ADVANCE_SAMPLES];
 static float32_t radar_q_acquired[RADAR_FRAME_ADVANCE_SAMPLES];
+static float32_t radar_displacement_acquired[RADAR_FRAME_ADVANCE_SAMPLES];
 
 static float32_t radar_i_history[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_q_history[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_displacement_history[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_i_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t radar_q_samples[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_displacement_samples[RADAR_CHANNEL_SAMPLES];
 static float32_t spectrum_shifted[RADAR_CHANNEL_SAMPLES];
+static float32_t radar_displacement_spectrum_shifted[RADAR_CHANNEL_SAMPLES];
 static uint32_t radar_window_fill_samples = 0U;
+static uint32_t radar_displacement_window_fill_samples = 0U;
 static float32_t spectrum_pos_peak_hz = 0.0f;
 static float32_t spectrum_neg_peak_hz = 0.0f;
 static bool spectrum_pos_peak_valid = false;
@@ -81,6 +86,8 @@ static bool log_touch_was_detected = false;
 
 static radar_hr_state_t  radar_hr_state;
 static radar_hr_output_t radar_hr_output = {0};
+static radar_phase_state_t radar_phase_state;
+static radar_phase_quality_t radar_phase_quality = {0};
 
 /******************************************************************************
  * Functions
@@ -126,7 +133,7 @@ int main(void) {
 	PB_enableIRQ();					// Enable interrupt on user pushbutton
 
 	BSP_LED_Init(LED3);					// Available as general status LED
-	BSP_LED_Init(LED4);					// Toggled in radar DMA IRQ (new frame ready)
+	BSP_LED_Init(LED4);					// Toggled after the foreground consumes a radar DMA chunk
 
 	MENU_draw();						// Draw the menu
 	disp_info();						// Show info menu at startup
@@ -136,6 +143,8 @@ int main(void) {
 
 	ret_val = radar_init(radar_i_acquired, radar_q_acquired, RADAR_FRAME_ADVANCE_SAMPLES);
 	error_handling(ret_val);
+
+	radar_phase_init(&radar_phase_state, NULL);
 
 	radar_start();
 
@@ -260,21 +269,29 @@ int main(void) {
 			menu_request_refresh(MENU_SIX, true);
 		}
 
-		if (radar_frame_ready()) {
+		if (radar_get_latest_chunk()) {
 			bool window_ready;
-			uint32_t primask = __get_PRIMASK();
-			__disable_irq();
-			radar_clear_frame_ready();
+			bool displacement_window_ready;
+
+			BSP_LED_Toggle(LED4);
+			radar_phase_process_chunk(&radar_phase_state,
+					radar_i_acquired, radar_q_acquired,
+					radar_displacement_acquired,
+					RADAR_FRAME_ADVANCE_SAMPLES,
+					&radar_phase_quality);
 			window_ready = radar_append_latest_chunk(radar_i_history, radar_q_history,
 					radar_i_acquired, radar_q_acquired, &radar_window_fill_samples);
-			if (primask == 0U) {
-				__enable_irq();
-			}
+			displacement_window_ready = radar_append_displacement_chunk(
+					radar_displacement_history, radar_displacement_acquired,
+					&radar_displacement_window_fill_samples);
+			window_ready = window_ready && displacement_window_ready;
 
 			if (window_ready) {
 				radar_prepare_processing_window(radar_i_samples, radar_q_samples,
 						radar_i_history, radar_q_history,
 						effect_active, fxL, fxR, current_filter_index);
+				radar_prepare_displacement_window(radar_displacement_samples,
+						radar_displacement_history);
 
 				// Use the rolling 50%-overlapped I/Q window for calculations.
 				ret_val = fft_iq_centered(radar_i_samples, radar_q_samples, spectrum_shifted);
@@ -288,13 +305,25 @@ int main(void) {
 						&spectrum_pos_peak_valid,
 						&spectrum_neg_peak_valid);
 
-				radar_hr_process_frame(&radar_hr_state, spectrum_shifted, &radar_hr_output);
+				ret_val = fft_real_centered(radar_displacement_samples,
+						radar_displacement_spectrum_shifted);
+				error_handling(ret_val);
+
+				if ((radar_phase_quality.flags & RADAR_PHASE_FLAG_VALID) != 0U) {
+					radar_hr_process_frame(&radar_hr_state,
+							radar_displacement_spectrum_shifted, &radar_hr_output);
+				} else {
+					radar_hr_process_invalid_frame(&radar_hr_state, &radar_hr_output);
+				}
 
 				/* Log one CSV row per processed radar frame (best-effort). */
 				openlog_write_row(HAL_GetTick(),
 						radar_hr_output.bpm,
 						radar_hr_output.valid,
-						radar_hr_output.state);
+						radar_hr_output.state,
+						&radar_phase_quality,
+						radar_get_overrun_count(),
+						radar_get_dma_error_count());
 
 				disp_refresh = true;      // Tell the display about the new data
 			}
@@ -306,6 +335,7 @@ int main(void) {
 
 			menu_data.radar_i_samples = radar_i_samples;
 			menu_data.radar_q_samples = radar_q_samples;
+			menu_data.radar_displacement_samples = radar_displacement_samples;
 			menu_data.spectrum_shifted = spectrum_shifted;
 			menu_data.current_filter_index = current_filter_index;
 			menu_data.filter_names = filter_names;
@@ -318,6 +348,9 @@ int main(void) {
 			menu_data.radar_hr_bpm   = radar_hr_output.bpm;
 			menu_data.radar_hr_valid = radar_hr_output.valid;
 			menu_data.radar_hr_state = radar_hr_output.state;
+			menu_data.radar_phase_quality = radar_phase_quality;
+			menu_data.radar_dma_overrun_count = radar_get_overrun_count();
+			menu_data.radar_dma_error_count = radar_get_dma_error_count();
 			menu_data.logging_enabled    = openlog_is_enabled();
 			menu_data.logging_drop_count = openlog_get_drop_count();
 

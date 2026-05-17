@@ -21,10 +21,12 @@
 #include "stm32f4xx_hal.h"
 
 /** Maximum formatted CSV row length including \r\n and NUL terminator. */
-enum { OPENLOG_LINE_BUF_SIZE = 80U };
+enum { OPENLOG_LINE_BUF_SIZE = 128U };
 
 /** CSV header string written on every START transition. */
-static const char openlog_csv_header[] = "tick_ms,bpm,valid,state\r\n";
+static const char openlog_csv_header[] =
+        "tick_ms,bpm,valid,state,phase_flags,clip_count,low_signal_count,"
+        "mean_radius_counts,radar_overruns,dma_errors\r\n";
 
 /** OpenLog command mode control. */
 enum {
@@ -231,23 +233,45 @@ uint32_t openlog_get_drop_count(void)
 void openlog_write_row(uint32_t tick_ms,
                        float bpm,
                        bool valid,
-                       radar_hr_sm_state_t state)
+                       radar_hr_sm_state_t state,
+                       const radar_phase_quality_t *phase_quality,
+                       uint32_t radar_overruns,
+                       uint32_t dma_errors)
 {
     char buf[OPENLOG_LINE_BUF_SIZE];
     int len;
+    uint32_t phase_flags = 0U;
+    uint32_t clip_count = 0U;
+    uint32_t low_signal_count = 0U;
+    uint32_t mean_radius_counts = 0U;
 
     if (!openlog_enabled)
     {
         return;
     }
 
-    /* Format: tick_ms,bpm,valid,state\r\n
+    if (phase_quality != 0)
+    {
+        phase_flags = phase_quality->flags;
+        clip_count = phase_quality->clipped_sample_count;
+        low_signal_count = phase_quality->low_signal_sample_count;
+        mean_radius_counts = (uint32_t)(phase_quality->mean_radius_counts + 0.5f);
+    }
+
+    /* Format: tick_ms,bpm,valid,state,phase_flags,clip_count,low_signal_count,
+     * mean_radius_counts,radar_overruns,dma_errors\r\n
      * Use integer BPM to avoid pulling in printf-float on nano specs. */
-    len = snprintf(buf, sizeof(buf), "%lu,%d,%d,%d\r\n",
+    len = snprintf(buf, sizeof(buf), "%lu,%d,%d,%d,%lu,%lu,%lu,%lu,%lu,%lu\r\n",
                    (unsigned long)tick_ms,
                    (int)(bpm + 0.5f),
                    (int)valid,
-                   (int)state);
+                   (int)state,
+                   (unsigned long)phase_flags,
+                   (unsigned long)clip_count,
+                   (unsigned long)low_signal_count,
+                   (unsigned long)mean_radius_counts,
+                   (unsigned long)radar_overruns,
+                   (unsigned long)dma_errors);
 
     if ((len > 0) && ((uint32_t)len < sizeof(buf)))
     {
