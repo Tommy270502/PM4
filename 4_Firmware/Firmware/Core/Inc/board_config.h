@@ -22,7 +22,7 @@
  * Flip LCD orientation by 180 degrees.
  * Comment this define to keep default orientation.
  */
-//#define FLIPPED_LCD
+#define FLIPPED_LCD
 
 /******************************************************************************
  * Shared ADC/DAC Hardware References
