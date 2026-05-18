@@ -190,7 +190,7 @@ void disp_info(void)
     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
     BSP_LCD_SetFont(&Font20);
     BSP_LCD_DisplayStringAt(5, 10, (uint8_t*) "Radar Processing", LEFT_MODE);
-    BSP_LCD_DisplayStringAt(5, 30, (uint8_t*) "Heart-Rate Monitor", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(5, 30, (uint8_t*) "HeartRate Monitor", LEFT_MODE);
     BSP_LCD_SetFont(&Font16);
     BSP_LCD_DisplayStringAt(5, 60, (uint8_t*) "--------------------", LEFT_MODE);
     BSP_LCD_DisplayStringAt(5, 80, (uint8_t*) "Authors:", LEFT_MODE);
@@ -198,7 +198,7 @@ void disp_info(void)
     BSP_LCD_DisplayStringAt(5, 130, (uint8_t*) "Thomas Perri", LEFT_MODE);
 
     BSP_LCD_DisplayStringAt(5, 160, (uint8_t*) "--------------------", LEFT_MODE);
-    BSP_LCD_DisplayStringAt(5, 200, (uint8_t*) "Version 26.03.2026", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(5, 200, (uint8_t*) "Version 17.05.2026", LEFT_MODE);
 }
 
 /** ***************************************************************************
