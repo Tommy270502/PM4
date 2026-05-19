@@ -1,11 +1,5 @@
 # Video Presentation Script
 
-Aligned with:
-- `ET-PM4-SW9-VideoPresentationRequirements.pdf`
-- `ET-PM4-SW9-VideoPresentation-Script.pdf`
-- `OnePager.pdf`
-- current firmware features in the STM32 project
-
 Target length: about 2 minutes 40 seconds
 
 ## Contactless Radar-Based Heart Rate Monitoring Device
@@ -20,12 +14,11 @@ Target length: about 2 minutes 40 seconds
 | 06 | Inside the system, the K-LC5 radar module is connected to an analog front end and an STM32 Discovery board. The microcontroller acquires the I and Q radar channels, processes them, and drives the LCD touchscreen. | Block diagram: `K-LC5 radar -> analog front end -> STM32 -> LCD touchscreen`. Brief real-hardware shot. | 1:06-1:22 |
 | 07 | The complete processing chain runs directly on the embedded platform. No external PC is required during operation, while heart-rate data can also be logged to an SD card with the integrated OpenLog module for later analysis. | Live video of standalone board operation. Brief close-up of OpenLog. Optional text: `Standalone operation`, `SD card logging` | 1:23-1:39 |
 | 08 | The radar signals are sampled at 100 hertz. Each analysis window contains 512 samples per channel, equal to 5.12 seconds of data, with updates every 2.56 seconds using 50 percent overlap. | Processing pipeline slide with key numbers: `100 Hz`, `512 samples`, `5.12 s window`, `2.56 s update` | 1:40-1:55 |
-| 09 | From the sampled I and Q signals, the system computes the frequency spectrum and detects the dominant heart-rate peak. The interface also provides analysis tools such as selectable filter modes for testing and development. | UI recording: time-domain screen, FFT spectrum, peak detection. Briefly show filter/effect menu only for 1–2 seconds. | 1:56-2:12 |
-| 10 | The interface makes the signal processing visible: time signal, FFT spectrum, peak-frequency readout, ECG monitor page for reference comparison, and logged heart-rate data for offline evaluation. | Live UI recording. Show: `Time Signal`, `FFT Spectr`, `Peak Detect`, `EKG BPM`. Optional quick insert: SD card/log file on PC. | 2:13-2:30 |
-| 11 | This allows the user to see both the final heart-rate estimate and the intermediate signal and spectrum, supporting debugging, validation, and further development. | Continue UI video. Zoom/crop on spectrum peak and ECG BPM page. | 2:31-2:43 |
-| 12 | The device targets short-range operation up to about one meter. The displayed spectrum covers approximately plus or minus four hertz, with ECG comparison used for validation. | Static technical summary slide: `Range: up to ~1 m`, `Spectrum: +/-4 Hz`, `ECG comparison`, `SD logging` | 2:44-2:55 |
-| 13 | The FFT bin spacing is approximately 0.195 hertz, or 11.7 beats per minute. However, parabolic peak interpolation refines the peak position, so the BPM output is not limited to raw FFT-bin steps. Practical accuracy still depends on signal quality, leakage, motion artifacts, and temporal stability. | Technical graphic: FFT peak between bins, parabolic curve over three bins. Labels: `0.195 Hz`, `11.7 bpm/bin`, `sub-bin interpolation`, `accuracy depends on signal quality` | 2:56-3:16 |
-| 14 | Contactless sensing, real-time embedded processing, touchscreen visualization, ECG-supported validation, and SD-card logging come together in one compact platform for comfortable vital-sign monitoring. | **Final slide:** project title, authors, date, ZHAW affiliation, repository/project link or QR code. | 3:17-3:27 |
+| 09 | From the sampled I and Q radar signals, the system computes the frequency spectrum, detects the dominant heart-rate peak and calculates the BPM value. The interface makes this process visible step by step: from the time signal, to the FFT spectrum, to peak detection, and finally to the radar BPM output. | UI recording: show `Time Signal`, then `FFT Spectr`, then `Peak Detect`, then `Radar BPM`. | 1:56-2:14 |
+| 10 | For validation, the device also includes an integrated ECG front end with a connection slot for ECG cables. This allows a direct reference measurement to be taken with the same platform, with the result displayed on the ECG monitor page for comparison with the radar BPM value. | Hardware close-up: ECG chip / ECG input connector / cable slot. Then quick cut to `EKG BPM` page and radar peak/BPM view. Minimal labels: `Integrated ECG reference`, `ECG cable input`, `Radar vs. ECG`. | 2:15-2:32 |
+| 11 | The device targets short-range operation up to about one meter. The displayed spectrum covers approximately plus or minus four hertz, with ECG comparison and SD-card logging supporting validation and later analysis. | Static technical summary slide: `Range: up to ~1 m`, `Spectrum: +/-4 Hz`, `ECG reference`, `SD logging`. | 2:33-2:45 |
+| 12 | The FFT bin spacing is approximately 0.195 hertz, or 11.7 beats per minute. However, parabolic peak interpolation refines the peak position, so the BPM output is not limited to raw FFT-bin steps. Practical accuracy still depends on signal quality, leakage, motion artifacts, and temporal stability. | Technical graphic: FFT peak between bins, parabolic curve over three bins. Labels: `0.195 Hz`, `11.7 bpm/bin`, `sub-bin interpolation`, `accuracy depends on signal quality` | 2:46-3:06 |
+| 13 | Contactless sensing, real-time embedded processing, touchscreen visualization, ECG-supported validation, and SD-card logging come together in one compact platform for comfortable vital-sign monitoring. | **Final slide:** project title, authors, date, ZHAW affiliation, repository/project link or QR code. | 3:07-3:17 |
 
 ## Final Slide Content
 
