@@ -36,6 +36,7 @@ extern "C" {
 #define EKG_DEFAULT_HP_HZ        (0.0f)
 #define EKG_DEFAULT_LP_HZ        (0.0f)
 #define EKG_DEFAULT_ENV_HZ       (8.0f)
+#define EKG_DISPLAY_HISTORY_SAMPLES (240U)
 
 typedef struct
 {
@@ -56,6 +57,8 @@ typedef struct
     float envelope;        /**< Squared-derivative detector envelope. */
     float threshold;       /**< Adaptive detector threshold. */
     uint8_t r_peak;
+    uint32_t sample_index;        /**< Processing sample index for this output. */
+    uint32_t r_peak_sample_index; /**< Candidate sample index when r_peak is set. */
     float bpm;
     uint8_t bpm_valid;
 } ekg_output_t;
@@ -136,6 +139,36 @@ uint8_t ekg_get_latest_raw_sample(uint16_t *raw);
  * @return 1 if a sample was processed, 0 if no new sample was available.
  */
 uint8_t ekg_process_if_ready(ekg_output_t *out);
+
+/**
+ * @brief Clear display-side EKG waveform and peak-marker history.
+ */
+void ekg_display_history_clear(float *signal_history,
+                               uint8_t *peak_history,
+                               uint32_t *history_fill_samples);
+
+/**
+ * @brief Append one processed EKG sample to display-side rolling history.
+ *
+ * Stores ekg_output_t.bandpassed and aligns the marker to r_peak_sample_index.
+ *
+ * @return 1 when a sample was appended, 0 on invalid arguments.
+ */
+uint8_t ekg_display_history_append(float *signal_history,
+                                   uint8_t *peak_history,
+                                   uint32_t *history_fill_samples,
+                                   const ekg_output_t *sample);
+
+/**
+ * @brief Compute display scale for one recent EKG waveform history window.
+ */
+void ekg_get_display_scale(const float *samples,
+                           uint32_t start_index,
+                           uint32_t count,
+                           float min_span,
+                           float headroom_ratio,
+                           float *min_value,
+                           float *max_value);
 
 /**
  * @brief Number of overwritten samples since startup/reset.

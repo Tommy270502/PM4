@@ -46,6 +46,9 @@ typedef struct {
 	const char * const *filter_names;
 	ekg_output_t ekg_latest;
 	uint32_t ekg_last_peak_tick;
+	const float32_t *ekg_signal_samples;
+	const uint8_t *ekg_peak_markers;
+	uint32_t ekg_signal_count;
 	float32_t spectrum_pos_peak_hz;
 	float32_t spectrum_neg_peak_hz;
 	bool spectrum_pos_peak_valid;

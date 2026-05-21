@@ -81,6 +81,9 @@ static const char* filter_names[] = {
 
 static ekg_output_t ekg_latest = {0};
 static uint32_t ekg_last_peak_tick = 0;
+static float32_t ekg_signal_history[EKG_DISPLAY_HISTORY_SAMPLES];
+static uint8_t ekg_peak_history[EKG_DISPLAY_HISTORY_SAMPLES];
+static uint32_t ekg_signal_history_fill_samples = 0U;
 static bool dac_touch_was_detected = false;
 static bool log_touch_was_detected = false;
 
@@ -187,6 +190,8 @@ int main(void) {
 	};
 
 	ekg_init(&ekg_tuned_config);  // AD8232 on PF6 (ADC3_IN4), interrupt-driven sampling
+	ekg_display_history_clear(ekg_signal_history, ekg_peak_history,
+			&ekg_signal_history_fill_samples);
 
 	radar_hr_init(&radar_hr_state, NULL);  // Radar HR estimator with defaults
 
@@ -217,6 +222,7 @@ int main(void) {
 		case MENU_SIX:
 		case MENU_SEVEN:
 		case MENU_EIGHT:
+		case MENU_NINE:
 			menu_request_refresh(menu_transition, true);
 			break;
 		default:	// Should never occur
@@ -253,16 +259,18 @@ int main(void) {
 		}
 
 		if (ekg_process_if_ready(&ekg_latest)) {
+			ekg_display_history_append(ekg_signal_history, ekg_peak_history,
+					&ekg_signal_history_fill_samples, &ekg_latest);
 			if (ekg_latest.r_peak) {
 				ekg_last_peak_tick = HAL_GetTick();
 			}
-			if (active_menu == MENU_SEVEN) {
-				menu_request_refresh(MENU_SEVEN, false);
+			if ((active_menu == MENU_SEVEN) || (active_menu == MENU_EIGHT)) {
+				menu_request_refresh(active_menu, false);
 			}
 		}
 
-		if ((active_menu == MENU_EIGHT) && dac_output_handle_touch()) {
-			menu_request_refresh(MENU_EIGHT, true);
+		if ((active_menu == MENU_NINE) && dac_output_handle_touch()) {
+			menu_request_refresh(MENU_NINE, true);
 		}
 
 		if ((active_menu == MENU_SIX) && openlog_handle_touch()) {
@@ -341,6 +349,9 @@ int main(void) {
 			menu_data.filter_names = filter_names;
 			menu_data.ekg_latest = ekg_latest;
 			menu_data.ekg_last_peak_tick = ekg_last_peak_tick;
+			menu_data.ekg_signal_samples = ekg_signal_history;
+			menu_data.ekg_peak_markers = ekg_peak_history;
+			menu_data.ekg_signal_count = ekg_signal_history_fill_samples;
 			menu_data.spectrum_pos_peak_hz = spectrum_pos_peak_hz;
 			menu_data.spectrum_neg_peak_hz = spectrum_neg_peak_hz;
 			menu_data.spectrum_pos_peak_valid = spectrum_pos_peak_valid;

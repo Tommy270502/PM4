@@ -39,12 +39,17 @@ static const uint32_t disp_menu_refresh_limit[MENU_TOTAL_ENTRIES] = {
     [MENU_SIX] = 4U,
     [MENU_SEVEN] = 4U,
     [MENU_EIGHT] = 4U,
+    [MENU_NINE] = 4U,
 };
 
 /* Time signal display parameters (MENU_ONE). */
 static const uint32_t disp_max_time_signal_points = 240U;
 static const float32_t disp_time_signal_min_span = 4.0f;
 static const float32_t disp_time_signal_headroom = 0.10f;
+
+/* EKG time signal display parameters (MENU_EIGHT). */
+static const float32_t disp_ekg_signal_min_span = 0.20f;
+static const float32_t disp_ekg_signal_headroom = 0.10f;
 
 /* Spectrum analyzer display parameters (MENU_TWO). */
 static const float32_t disp_spectrum_min_display_max = 0.001f;
@@ -58,6 +63,7 @@ static uint32_t disp_menu_loop_count[MENU_TOTAL_ENTRIES] = {0};
 static uint32_t disp_menu_get_refresh_limit(MENU_item_t menu_item);
 static void disp_peak_frequencies(const disp_menu_data_t *data);
 static void disp_format_frequency_hz(char text[], size_t text_size, float32_t frequency_hz);
+static void disp_ekg_signal(const disp_menu_data_t *data);
 static void disp_dac_output(void);
 
 /** ***************************************************************************
@@ -209,7 +215,7 @@ void disp_info(void)
  *****************************************************************************/
 void disp_menu_force_refresh(MENU_item_t menu_item)
 {
-    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_EIGHT))
+    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_NINE))
     {
         disp_menu_loop_count[menu_item] = disp_menu_get_refresh_limit(menu_item);
     }
@@ -519,6 +525,14 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
         {
             disp_menu_loop_count[MENU_EIGHT] = 0;
             disp_clear_data();
+            disp_ekg_signal(data);
+        }
+        break;
+    case MENU_NINE:
+        if (disp_menu_loop_count[MENU_NINE]++ >= disp_menu_get_refresh_limit(MENU_NINE))
+        {
+            disp_menu_loop_count[MENU_NINE] = 0;
+            disp_clear_data();
             disp_dac_output();
         }
         break;
@@ -529,7 +543,7 @@ void disp_menu_render(MENU_item_t active_menu, const disp_menu_data_t *data)
 
 static uint32_t disp_menu_get_refresh_limit(MENU_item_t menu_item)
 {
-    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_EIGHT))
+    if ((menu_item >= MENU_ZERO) && (menu_item <= MENU_NINE))
     {
         return disp_menu_refresh_limit[menu_item];
     }
@@ -609,6 +623,125 @@ static void disp_format_frequency_hz(char text[], size_t text_size, float32_t fr
         sign,
         (unsigned long) whole_hz,
         (unsigned long) fractional_milli_hz);
+}
+
+static void disp_ekg_signal(const disp_menu_data_t *data)
+{
+    char text[32];
+    uint32_t signal_start;
+    uint32_t signal_count;
+    float32_t signal_min;
+    float32_t signal_max;
+    float32_t signal_span;
+    uint32_t position_divisor;
+
+    if ((data == 0) || (data->ekg_signal_samples == 0) ||
+            (data->ekg_peak_markers == 0) || (data->ekg_signal_count < 2U))
+    {
+        BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+        BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+        BSP_LCD_SetFont(&Font12);
+        BSP_LCD_DisplayStringAt(2, 2, (uint8_t*) "BPM: ---", LEFT_MODE);
+        return;
+    }
+
+    signal_count = data->ekg_signal_count;
+    if (signal_count > EKG_DISPLAY_HISTORY_SAMPLES)
+    {
+        signal_count = EKG_DISPLAY_HISTORY_SAMPLES;
+    }
+    signal_start = EKG_DISPLAY_HISTORY_SAMPLES - signal_count;
+
+    ekg_get_display_scale(data->ekg_signal_samples,
+            signal_start,
+            signal_count,
+            disp_ekg_signal_min_span,
+            disp_ekg_signal_headroom,
+            &signal_min,
+            &signal_max);
+    signal_span = signal_max - signal_min;
+    if (signal_span <= 0.0f)
+    {
+        return;
+    }
+
+    if ((signal_min < 0.0f) && (signal_max > 0.0f))
+    {
+        int32_t baseline_y = (int32_t) ((signal_max / signal_span) * (DISP_HEIGHT - 1U));
+
+        if (baseline_y < 0)
+        {
+            baseline_y = 0;
+        }
+        if (baseline_y > (int32_t)(DISP_HEIGHT - 1U))
+        {
+            baseline_y = (int32_t)(DISP_HEIGHT - 1U);
+        }
+
+        BSP_LCD_SetTextColor(LCD_COLOR_LIGHTGRAY);
+        BSP_LCD_DrawHLine(0U, (uint16_t)baseline_y, DISP_WIDTH);
+    }
+
+    disp_curves((float32_t*) &data->ekg_signal_samples[signal_start],
+            signal_count, signal_min, signal_max, LCD_COLOR_BLUE);
+
+    position_divisor = (signal_count > 1U) ? (signal_count - 1U) : 1U;
+    BSP_LCD_SetTextColor(LCD_COLOR_RED);
+    for (uint32_t i = 0; i < signal_count; i++)
+    {
+        uint32_t history_index = signal_start + i;
+
+        if (data->ekg_peak_markers[history_index] != 0U)
+        {
+            float32_t sample = data->ekg_signal_samples[history_index];
+            int32_t marker_x = (int32_t)(((DISP_WIDTH - 1U) * i) / position_divisor);
+            int32_t marker_y = (int32_t)(((signal_max - sample) / signal_span) * (DISP_HEIGHT - 1U));
+            int32_t marker_y0 = marker_y - 12;
+            int32_t marker_y1 = marker_y + 12;
+
+            if (marker_y < 0)
+            {
+                marker_y = 0;
+            }
+            if (marker_y > (int32_t)(DISP_HEIGHT - 1U))
+            {
+                marker_y = (int32_t)(DISP_HEIGHT - 1U);
+            }
+            if (marker_y0 < 0)
+            {
+                marker_y0 = 0;
+            }
+            if (marker_y1 > (int32_t)(DISP_HEIGHT - 1U))
+            {
+                marker_y1 = (int32_t)(DISP_HEIGHT - 1U);
+            }
+
+            BSP_LCD_DrawLine((uint16_t)marker_x, (uint16_t)marker_y0,
+                    (uint16_t)marker_x, (uint16_t)marker_y1);
+            if (marker_x > 0)
+            {
+                BSP_LCD_DrawPixel((uint16_t)(marker_x - 1), (uint16_t)marker_y, LCD_COLOR_RED);
+            }
+            if (marker_x < (int32_t)(DISP_WIDTH - 1U))
+            {
+                BSP_LCD_DrawPixel((uint16_t)(marker_x + 1), (uint16_t)marker_y, LCD_COLOR_RED);
+            }
+        }
+    }
+
+    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+    BSP_LCD_SetFont(&Font12);
+    if (data->ekg_latest.bpm_valid)
+    {
+        snprintf(text, sizeof(text), "BPM: %3d", (int)(data->ekg_latest.bpm + 0.5f));
+        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+    }
+    else
+    {
+        snprintf(text, sizeof(text), "BPM: ---");
+        BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+    }
+    BSP_LCD_DisplayStringAt(2, 2, (uint8_t*) text, LEFT_MODE);
 }
 
 static void disp_dac_output(void)

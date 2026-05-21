@@ -7,7 +7,7 @@
 #define UI_LAYOUT_H_
 
 /******************************************************************************
- * DAC slider and button layout (MENU_EIGHT)
+ * DAC slider and button layout (MENU_NINE)
  *****************************************************************************/
 #define DAC_SLIDER_X             20U
 #define DAC_SLIDER_Y             120U

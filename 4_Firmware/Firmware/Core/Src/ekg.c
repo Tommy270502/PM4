@@ -460,6 +460,7 @@ static void ekg_process_raw_at_index(uint16_t raw, uint32_t sample_index,
     float sq;
     float fs = (float)g_cfg.sample_rate_hz;
     uint8_t r_peak = 0U;
+    uint32_t r_peak_sample_index = sample_index;
 
     if (g_hp_enabled != 0U)
     {
@@ -529,6 +530,7 @@ static void ekg_process_raw_at_index(uint16_t raw, uint32_t sample_index,
                          (samples_since_peak <= g_max_rr_samples)))
                     {
                         r_peak = 1U;
+                        r_peak_sample_index = g_candidate_peak_sample;
 
                         if (g_last_accepted_peak != 0U)
                         {
@@ -579,6 +581,8 @@ static void ekg_process_raw_at_index(uint16_t raw, uint32_t sample_index,
         out->envelope = g_env;
         out->threshold = g_threshold;
         out->r_peak = r_peak;
+        out->sample_index = sample_index;
+        out->r_peak_sample_index = r_peak_sample_index;
         out->bpm = (g_bpm_valid != 0U) ? g_latest_bpm : 0.0f;
         out->bpm_valid = g_bpm_valid;
     }
@@ -667,6 +671,128 @@ uint8_t ekg_process_if_ready(ekg_output_t *out)
     g_sample_index = sample_index + 1U;
 
     return 1U;
+}
+
+void ekg_display_history_clear(float *signal_history,
+                               uint8_t *peak_history,
+                               uint32_t *history_fill_samples)
+{
+    if ((signal_history == 0) || (peak_history == 0) || (history_fill_samples == 0))
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < EKG_DISPLAY_HISTORY_SAMPLES; i++)
+    {
+        signal_history[i] = 0.0f;
+        peak_history[i] = 0U;
+    }
+
+    *history_fill_samples = 0U;
+}
+
+uint8_t ekg_display_history_append(float *signal_history,
+                                   uint8_t *peak_history,
+                                   uint32_t *history_fill_samples,
+                                   const ekg_output_t *sample)
+{
+    if ((signal_history == 0) || (peak_history == 0) ||
+            (history_fill_samples == 0) || (sample == 0))
+    {
+        return 0U;
+    }
+
+    for (uint32_t i = 0; i < (EKG_DISPLAY_HISTORY_SAMPLES - 1U); i++)
+    {
+        signal_history[i] = signal_history[i + 1U];
+        peak_history[i] = peak_history[i + 1U];
+    }
+
+    signal_history[EKG_DISPLAY_HISTORY_SAMPLES - 1U] = sample->bandpassed;
+    peak_history[EKG_DISPLAY_HISTORY_SAMPLES - 1U] = 0U;
+
+    if (*history_fill_samples < EKG_DISPLAY_HISTORY_SAMPLES)
+    {
+        (*history_fill_samples)++;
+    }
+
+    if ((sample->r_peak != 0U) && (sample->sample_index >= sample->r_peak_sample_index))
+    {
+        uint32_t peak_age = sample->sample_index - sample->r_peak_sample_index;
+
+        if (peak_age < EKG_DISPLAY_HISTORY_SAMPLES)
+        {
+            peak_history[EKG_DISPLAY_HISTORY_SAMPLES - 1U - peak_age] = 1U;
+        }
+    }
+
+    return 1U;
+}
+
+void ekg_get_display_scale(const float *samples,
+                           uint32_t start_index,
+                           uint32_t count,
+                           float min_span,
+                           float headroom_ratio,
+                           float *min_value,
+                           float *max_value)
+{
+    float min_sample;
+    float max_sample;
+    float span;
+    float center;
+    float headroom;
+
+    if ((samples == 0) || (min_value == 0) || (max_value == 0) || (count == 0U))
+    {
+        return;
+    }
+
+    if (start_index >= EKG_DISPLAY_HISTORY_SAMPLES)
+    {
+        return;
+    }
+
+    if (count > (EKG_DISPLAY_HISTORY_SAMPLES - start_index))
+    {
+        count = EKG_DISPLAY_HISTORY_SAMPLES - start_index;
+    }
+
+    if (min_span < 0.0f)
+    {
+        min_span = 0.0f;
+    }
+    if (headroom_ratio < 0.0f)
+    {
+        headroom_ratio = 0.0f;
+    }
+
+    min_sample = samples[start_index];
+    max_sample = samples[start_index];
+
+    for (uint32_t i = start_index; i < (start_index + count); i++)
+    {
+        if (samples[i] < min_sample)
+        {
+            min_sample = samples[i];
+        }
+        if (samples[i] > max_sample)
+        {
+            max_sample = samples[i];
+        }
+    }
+
+    span = max_sample - min_sample;
+    if (span < min_span)
+    {
+        span = min_span;
+    }
+
+    center = 0.5f * (max_sample + min_sample);
+    headroom = span * headroom_ratio;
+
+    *min_value = center - (0.5f * span) - headroom;
+    *max_value = center + (0.5f * span) + headroom;
 }
 
 uint32_t ekg_get_overrun_count(void)
