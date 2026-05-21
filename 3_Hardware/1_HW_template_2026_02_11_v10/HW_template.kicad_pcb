@@ -11181,7 +11181,7 @@
 		(property "Reference" "Y2"
 			(at 0 -2.77 90)
 			(layer "F.SilkS")
-			(uuid "49423964-56d4-4576-80de-5a63a5a021f5")
+			(uuid "c3e6a595-49d3-4fbb-a1a6-d36e2695f247")
 			(effects
 				(font
 					(size 1 1)
@@ -11192,7 +11192,7 @@
 		(property "Value" "OpenLog"
 			(at 0 15.47 90)
 			(layer "F.Fab")
-			(uuid "29dde455-0afe-4ea1-b67c-384d78d4da64")
+			(uuid "14252bf8-9fb4-447f-968f-b78f9f1c2432")
 			(effects
 				(font
 					(size 1 1)
@@ -11204,7 +11204,7 @@
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "60b5ee91-bec2-4041-bc45-743adf2e07f7")
+			(uuid "46263b1c-ac0c-4e39-8200-fcbdd90a71fa")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11216,7 +11216,7 @@
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "1eaed034-4ee1-4fc4-bcd6-58a384f15063")
+			(uuid "a86d3ec7-8389-42f0-957b-cb43fe62ed8f")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11504,6 +11504,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "C:/Users/Thomas/Documents/git/PM4/3_Hardware/3_Data_Logger_Module/OpenLog - pins down.STEP"
+			(offset
+				(xyz -8.5 -6.5 11.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -90)
 			)
 		)
 	)
